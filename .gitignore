@@ -1,0 +1,24 @@
+# ---- 构建产物 ----
+*.iml
+.gradle/
+.kotlin/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.log
+
+# ---- 本地配置 / IDE（不入库）----
+local.properties
+key.properties
+.idea/
+.vscode/
+.DS_Store
+
+# ---- 签名文件（绝不入库）----
+*.keystore
+*.jks
+*.p12
+!debug.keystore

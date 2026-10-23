@@ -1,0 +1,75 @@
+package com.ruyue.alarm.data
+
+import android.content.Context
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+
+/**
+ * 提醒数据单独一个库文件。
+ *
+ * 为什么不并进 `ruyue.db`：那个库是 M0 的**证据日志**（event_logs），已经跑了几轮实测；
+ * 往里加表就得升 schema 版本 + 写迁移，迁移写错会让 App 启动即崩，代价太大。
+ * 分开之后：
+ *   · 日志库永远停在 version 1，实测证据不受影响
+ *   · 提醒库自己演进，出问题也只影响提醒数据
+ * 语义上也更清楚：一个是可丢弃的诊断日志，一个是不能丢的用户数据。
+ */
+@Database(entities = [Reminder::class, SsidHistory::class], version = 3, exportSchema = false)
+abstract class ReminderDatabase : RoomDatabase() {
+    abstract fun reminderDao(): ReminderDao
+    abstract fun ssidHistoryDao(): SsidHistoryDao
+
+    companion object {
+        const val NAME = "ruyue_reminders.db"
+
+        /**
+         * v1 → v2：加地点触发字段 + SSID 历史表。
+         *
+         * 用 `ALTER TABLE ADD COLUMN`（带 NOT NULL DEFAULT）而不是重建表：
+         * 不丢数据，列定义也最容易和实体对上（Room 会校验 schema，对不上就启动即崩）。
+         */
+        val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE reminders ADD COLUMN placeEnabled INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN placeName TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN latitude REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN longitude REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN radiusMeters INTEGER NOT NULL DEFAULT 300")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN placeDwellSeconds INTEGER NOT NULL DEFAULT 60")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS ssid_history (" +
+                        "ssid TEXT NOT NULL PRIMARY KEY, lastSeenAt INTEGER NOT NULL)"
+                )
+            }
+        }
+
+        /** v2 → v3：加触发逻辑（或/且）+ 自定义铃声 + 渐强秒数 */
+        val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE reminders ADD COLUMN matchMode TEXT NOT NULL DEFAULT 'ANY'")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN ringtoneUri TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN volumeRampSeconds INTEGER NOT NULL DEFAULT 15")
+            }
+        }
+    }
+}
+
+object ReminderDb {
+    @Volatile
+    private var instance: ReminderDatabase? = null
+
+    fun get(context: Context): ReminderDatabase =
+        instance ?: synchronized(this) {
+            instance ?: Room.databaseBuilder(
+                context.applicationContext,
+                ReminderDatabase::class.java,
+                ReminderDatabase.NAME,
+            )
+                .addMigrations(ReminderDatabase.MIGRATION_1_2, ReminderDatabase.MIGRATION_2_3)
+                .build()
+                .also { instance = it }
+        }
+}

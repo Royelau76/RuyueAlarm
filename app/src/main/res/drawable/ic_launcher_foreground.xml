@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 临时图标：一个简化的「时钟」十字指针，纯矢量，无需 PNG 资源。
+     正式版再换成设计稿。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 表盘外框 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,26 h8 v56 h-8 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M26,50 h56 v8 h-56 z" />
+    <!-- 指针中心 -->
+    <path
+        android:fillColor="#1F6FEB"
+        android:pathData="M46,46 h16 v16 h-16 z" />
+</vector>

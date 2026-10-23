@@ -1,0 +1,97 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'com.google.devtools.ksp'
+    id 'com.google.dagger.hilt.android'
+}
+
+// M0 说明：这里刻意沿用 compileSdk/targetSdk 34 —— 与同机已验证可编译的 BlinkNote 一致。
+// 代价：Android 15/16 上部分限制会以「兼容模式」运行，所以 M0 关于
+// 前台服务类型、全屏意图、开机启动前台服务 这三项的结论，在上架前升到 targetSdk 35/36
+// 之后必须复核一次（详见 docs/M0-验证手册.md 末尾）。
+// 高德 key 从 local.properties 读取 —— 该文件已被 .gitignore 排除，key 不会进版本库。
+// 取不到时依次回退到 gradle.properties、空串（空串时围栏页只显示接入说明，不会崩）。
+def localProps = new Properties()
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream { localProps.load(it) }
+}
+def amapKey = localProps.getProperty('AMAP_KEY') ?: (project.findProperty('AMAP_KEY') ?: '')
+
+android {
+    namespace 'com.ruyue.alarm'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.ruyue.alarm"
+        minSdk 26
+        targetSdk 34
+        versionCode 51
+        versionName "0.6.1-m2"
+        buildConfigField "String", "AMAP_KEY", "\"${amapKey}\""
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    buildFeatures {
+        compose true
+        buildConfig true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion '1.5.4'
+    }
+
+    packagingOptions {
+        resources.excludes += '/META-INF/{AL2.0,LGPL2.1}'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.activity:activity-compose:1.8.2'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.7.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+
+    // Compose
+    implementation platform('androidx.compose:compose-bom:2024.09.00')
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-graphics'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.foundation:foundation'
+    implementation 'androidx.compose.material3:material3'
+
+    // Room：记录心跳/WiFi 事件/闹钟触发，作为「服务有没有被杀」的证据链
+    implementation 'androidx.room:room-runtime:2.6.1'
+    implementation 'androidx.room:room-ktx:2.6.1'
+    ksp 'androidx.room:room-compiler:2.6.1'
+
+    // Hilt
+    implementation 'com.google.dagger:hilt-android:2.48.1'
+    ksp 'com.google.dagger:hilt-android-compiler:2.48.1'
+    implementation 'androidx.hilt:hilt-navigation-compose:1.1.0'
+
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+
+    // ---- 高德定位 / 地理围栏（M0 第 4 项，默认未启用）----
+    // 拿到 key（gradle.properties 里的 AMAP_KEY）后，把下面这行的注释去掉，
+    // 并把版本号换成高德开放平台当前推荐的版本，然后实现 AmapFenceScreen 里标了 TODO 的部分。
+    // implementation 'com.amap.api:location:6.4.5'
+}

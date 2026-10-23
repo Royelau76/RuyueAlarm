@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 用平台主题，避免为一个 M0 验证工程再引入 Material Components 依赖 -->
+    <style name="Theme.RuyueAlarm" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

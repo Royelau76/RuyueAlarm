@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">如约</string>
+
+    <string name="channel_sentinel_name">地点监听中</string>
+    <string name="channel_sentinel_desc">常驻通知，表示正在监听 WiFi / 位置触发条件</string>
+    <string name="channel_alarm_name">提醒闹钟</string>
+    <string name="channel_alarm_desc">到点或到达地点时的提醒</string>
+    <string name="channel_alert_name">服务状态提醒</string>
+    <string name="channel_alert_desc">地点监听意外停止时的提醒，点一下即可立即恢复</string>
+</resources>

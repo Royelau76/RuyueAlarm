@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 只暴露缓存目录下的 logs/，用于分享运行日志（不申请存储权限） -->
+<paths>
+    <cache-path name="logs" path="logs/" />
+</paths>

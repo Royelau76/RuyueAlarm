@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ================= WiFi / 网络 ================= -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!--
+      Android 13+ 的「附近 WiFi 设备」权限。
+      注意：这里**故意不加** android:usesPermissionFlags="neverForLocation"。
+      M0 实测（小米 15 Ultra / HyperOS）：加上这个标记后，即使
+      NEARBY_WIFI_DEVICES 与 ACCESS_FINE_LOCATION 都已授予，SSID 依然被系统抹成
+      <unknown ssid> —— 该标记等于告诉系统「本应用不用 WiFi 推断位置」，
+      系统就把 SSID/BSSID 这类位置性信息一并抹掉了。我们要读 SSID，必须去掉它。
+    -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        tools:targetApi="tiramisu" />
+
+    <!-- ================= 位置（读 SSID 的后备权限；M2 围栏必需）================= -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- ================= 响铃 ================= -->
+    <!-- 闹钟音量是用户设置，本应用不去偷偷改它；但"音量小=感知不到"是真实风险，
+         震动是最便宜的补偿（不依赖音量、也不需要额外授权弹窗）。 -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- ================= 前台服务（哨兵）================= -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!-- ================= 闹钟 / 提醒 ================= -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      USE_EXACT_ALARM（Android 13+）：普通权限，**安装即自动授予**，不需要用户去设置页。
+      本应用核心功能就是闹钟/提醒，属于该权限的适用类型。
+      M0 实测教训：只声明 SCHEDULE_EXACT_ALARM 时，Android 14 起默认拒绝，而且非闹钟类
+      应用**不会出现在「闹钟和提醒」列表里** —— 用户根本没地方授权（v0.1.2 就踩了这个坑）。
+      SCHEDULE_EXACT_ALARM 保留声明是为了覆盖 Android 12~12L（那时还没有 USE_EXACT_ALARM）。
+    -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 仅用于演示「忽略电池优化」跳转；上架前需评估是否保留 -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application
+        android:name=".RuyueApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.RuyueAlarm">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 响铃页：锁屏可见、可点亮屏幕 -->
+        <activity
+            android:name=".alarm.RingActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:turnScreenOn="true"
+            tools:targetApi="o_mr1" />
+
+        <!-- 哨兵前台服务：监听 WiFi 变化 + 地点判定 + 定时心跳 -->
+        <service
+            android:name=".sentinel.SentinelService"
+            android:exported="false"
+            android:foregroundServiceType="location|specialUse"
+            tools:targetApi="34">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="监听用户指定的 WiFi 接入点与地理范围，用于在到达指定地点时触发提醒" />
+        </service>
+
+        <receiver
+            android:name=".alarm.AlarmReceiver"
+            android:exported="false" />
+
+        <!-- 看门狗：定期检查哨兵是否还活着，被杀就拉起来（自愈机制） -->
+        <receiver
+            android:name=".sentinel.WatchdogReceiver"
+            android:exported="false" />
+
+        <!-- 开机/时间变更：把闹钟和哨兵拉回来，并留下证据日志 -->
+        <receiver
+            android:name=".boot.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 分享运行日志用：只暴露缓存目录下的 logs/，不申请任何存储权限 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>
