@@ -66,10 +66,17 @@ object ReminderNotifier {
             .setFullScreenIntent(full, true)
             .setContentIntent(full)
             .setAutoCancel(true)
+            // 常驻：响铃期间不能让用户把通知划掉（划掉了声音还在响却无处可停）
+            .setOngoing(true)
             .build()
 
         runCatching {
             NotificationManagerCompat.from(context).notify(notificationId(reminderId), notification)
+            // ⚠️ 声音从这里开始播，**不等响铃页**。
+            // 亮屏解锁时系统不会全屏弹 Activity、只出横幅 —— 靠界面出声就会迟到
+            //（实测 2026-10-27 09:55 晚了 35 秒）。RingPlayer 是进程级播放器，
+            // 由常驻哨兵的前台服务保着进程，界面来不来都能正常响。
+            RingPlayer.start(context, reminderId, ringtoneUri, rampSeconds)
         }
     }
 

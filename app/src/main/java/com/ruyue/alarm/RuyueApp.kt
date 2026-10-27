@@ -72,7 +72,20 @@ class RuyueApp : Application() {
         /** 旧渠道（IMPORTANCE_LOW，状态栏会显示图标）—— 已弃用，仅用于删除 */
         private const val CHANNEL_SENTINEL_LEGACY = "sentinel"
 
-        const val CHANNEL_ALARM = "alarm_test"
+        /**
+         * 提醒（闹钟）通知渠道。
+         *
+         * v0.7.0 起**渠道自身的声音与震动都关掉**：响铃由 `RingPlayer` 在通知发出时就播放
+         * （不再依赖响铃页），渠道再响一遍就会双重声音。重要性仍是 HIGH —— 这是
+         * heads-up 横幅 + 全屏意图的必要条件。
+         *
+         * ⚠️ 渠道设置**创建后不可修改**，所以必须换新 id（`alarm_test` → `alarm_ring`）；
+         * 改旧渠道参数完全无效，旧渠道顺手删掉。
+         */
+        const val CHANNEL_ALARM = "alarm_ring"
+
+        /** 旧提醒渠道，仅用于删除 */
+        private const val CHANNEL_ALARM_LEGACY = "alarm_test"
 
         /** 看门狗自动恢复失败时用这个渠道提醒用户点一下 */
         const val CHANNEL_ALERT = "sentinel_alert"
@@ -104,7 +117,9 @@ class RuyueApp : Application() {
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = context.getString(R.string.channel_alarm_desc)
-                enableVibration(true)
+                // 声音/震动由 RingPlayer 负责，渠道这里关掉，避免双重
+                setSound(null, null)
+                enableVibration(false)
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
 
@@ -114,6 +129,7 @@ class RuyueApp : Application() {
 
             // 旧渠道留着只会在"通知设置"里多一项，删掉
             runCatching { nm.deleteNotificationChannel(CHANNEL_SENTINEL_LEGACY) }
+            runCatching { nm.deleteNotificationChannel(CHANNEL_ALARM_LEGACY) }
         }
     }
 }

@@ -26,8 +26,8 @@ android {
         applicationId "com.ruyue.alarm"
         minSdk 26
         targetSdk 34
-        versionCode 51
-        versionName "0.6.1-m2"
+        versionCode 52
+        versionName "0.7.0-m2"
         buildConfigField "String", "AMAP_KEY", "\"${amapKey}\""
     }
 
