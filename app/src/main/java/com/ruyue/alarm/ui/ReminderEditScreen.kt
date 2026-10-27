@@ -64,7 +64,29 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
     }
 
-    ScreenScaffold(title = if (id > 0L) "编辑提醒" else "新建提醒", onBack = onBack) {
+    Column(Modifier.fillMaxSize()) {
+        // ---- 固定顶部：返回 + 标题 ----
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 16.dp, top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onBack) { Text("← 返回") }
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = if (id > 0L) "编辑提醒" else "新建提醒",
+                style = MaterialTheme.typography.titleLarge,
+            )
+        }
+
+        // ---- 可滚动内容 ----
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+        ) {
 
         message?.let {
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
@@ -76,7 +98,11 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- 基本信息 ----------------
-        SectionCard("基本信息") {
+        CollapsibleSection(
+            title = "基本信息",
+            summary = draft.title.ifBlank { "还没填标题" },
+            initiallyExpanded = true,
+        ) {
             OutlinedTextField(
                 value = draft.title,
                 onValueChange = { v -> vm.updateDraft { it.copy(title = v) } },
@@ -94,7 +120,15 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- ① 时间 ----------------
-        SectionCard("① 到点提醒（时间）") {
+        CollapsibleSection(
+            title = "① 到点提醒（时间）",
+            summary = if (draft.timeEnabled) {
+                "%02d:%02d".format(draft.hour, draft.minute) + " · " + Repeat.label(draft.repeatMask)
+            } else {
+                "未启用"
+            },
+            initiallyExpanded = draft.timeEnabled,
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("启用", Modifier.weight(1f))
                 Switch(
@@ -152,7 +186,20 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- ② WiFi ----------------
-        SectionCard("② 到地点提醒（连上指定 WiFi）") {
+        CollapsibleSection(
+            title = "② 到地点提醒（连上指定 WiFi）",
+            summary = if (!draft.wifiEnabled) {
+                "未启用"
+            } else {
+                val names = draft.ssidList
+                when {
+                    names.isEmpty() -> "已启用 · 还没选网络"
+                    names.size <= 2 -> names.joinToString(" / ")
+                    else -> "${names.first()} 等 ${names.size} 个"
+                }
+            },
+            initiallyExpanded = draft.wifiEnabled,
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("启用", Modifier.weight(1f))
                 Switch(
@@ -230,7 +277,16 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- ③ 地点（自研围栏）----------------
-        SectionCard("③ 到地点提醒（进入范围）") {
+        CollapsibleSection(
+            title = "③ 到地点提醒（进入范围）",
+            summary = if (!draft.placeEnabled) {
+                "未启用"
+            } else {
+                draft.placeName.ifBlank { "已设地点" } +
+                    " · ${draft.radiusMeters}m · 停留 ${draft.placeDwellSeconds}s"
+            },
+            initiallyExpanded = draft.placeEnabled,
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("启用", Modifier.weight(1f))
                 Switch(
@@ -308,7 +364,10 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- 触发逻辑（或 / 且）----------------
-        SectionCard("触发逻辑（多个条件之间）") {
+        CollapsibleSection(
+            title = "触发逻辑（多个条件之间）",
+            summary = MatchMode.label(draft.matchMode),
+        ) {
             val triggerCount = listOf(draft.timeEnabled, draft.wifiEnabled, draft.placeEnabled)
                 .count { it }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -332,7 +391,10 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- 冷却（三种触发共用）----------------
-        SectionCard("冷却（避免反复响）") {
+        CollapsibleSection(
+            title = "冷却（避免反复响）",
+            summary = "${cooldownLabel(draft.cooldownMinutes)}内只响一次",
+        ) {
             Text("${cooldownLabel(draft.cooldownMinutes)}内只响一次", fontWeight = FontWeight.Medium)
             Hint("家里 WiFi 一天重连十几次很正常，没有冷却会被吵死。测试时可以选「1 分钟」。")
             Spacer(Modifier.height(6.dp))
@@ -346,14 +408,19 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- 响铃 ----------------
-        SectionCard("响铃") {
-            val ringtoneLabel = remember(draft.ringtoneUri) {
-                draft.ringtoneUri.takeIf { it.isNotBlank() }?.let { saved ->
-                    runCatching {
-                        RingtoneManager.getRingtone(context, Uri.parse(saved))?.getTitle(context)
-                    }.getOrNull()
-                } ?: "系统默认闹钟铃声"
-            }
+        // 铃声名要显示在分区标题上，所以在这里先算出来
+        val ringtoneLabel = remember(draft.ringtoneUri) {
+            draft.ringtoneUri.takeIf { it.isNotBlank() }?.let { saved ->
+                runCatching {
+                    RingtoneManager.getRingtone(context, Uri.parse(saved))?.getTitle(context)
+                }.getOrNull()
+            } ?: "系统默认闹钟铃声"
+        }
+        CollapsibleSection(
+            title = "响铃",
+            summary = ringtoneLabel + " · " +
+                (if (draft.volumeRampSeconds > 0) "渐强 ${draft.volumeRampSeconds}s" else "不渐强"),
+        ) {
             Text("铃声：$ringtoneLabel", fontSize = 14.sp)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -406,19 +473,29 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
             Hint("渐强只缩放这一路输出，不会改动你手机的闹钟音量。")
         }
 
-        // ---------------- 操作 ----------------
-        Spacer(Modifier.height(10.dp))
-        Button(
-            onClick = { vm.save { onBack() } },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("保存") }
+        // ---------------- 操作（固定在底部，不用滑到底）----------------
+            Spacer(Modifier.height(16.dp))
+        }
 
-        if (id > 0L) {
-            Spacer(Modifier.height(6.dp))
-            OutlinedButton(
-                onClick = { vm.delete { onBack() } },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("删除这条提醒") }
+        Surface(
+            tonalElevation = 3.dp,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (id > 0L) {
+                    OutlinedButton(onClick = { vm.delete { onBack() } }) { Text("删除") }
+                }
+                Button(
+                    onClick = { vm.save { onBack() } },
+                    modifier = Modifier.weight(1f),
+                ) { Text("保存") }
+            }
         }
     }
 }
