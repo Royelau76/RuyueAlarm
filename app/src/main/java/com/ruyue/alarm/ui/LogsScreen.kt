@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ruyue.alarm.data.EventLog
 import com.ruyue.alarm.data.EventType
+import com.ruyue.alarm.ui.theme.LocalRuyueSemanticColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -99,9 +100,14 @@ private fun LogRow(log: EventLog) {
     }
 }
 
-private fun typeColor(type: String): Color = when (type) {
-    EventType.SERVICE_START, EventType.WIFI_CONNECT, EventType.RING_OPENED -> Color(0xFF2E7D32)
-    EventType.SERVICE_STOP, EventType.ERROR -> Color(0xFFC62828)
-    EventType.ALARM_FIRED, EventType.BOOT -> Color(0xFF1565C0)
-    else -> Color(0xFF616161)
+/** 事件类型配色走语义色 —— 硬编码的红绿在深色背景上几乎看不清 */
+@Composable
+private fun typeColor(type: String): Color {
+    val semantic = LocalRuyueSemanticColors.current
+    return when (type) {
+        EventType.SERVICE_START, EventType.WIFI_CONNECT, EventType.RING_OPENED -> semantic.success
+        EventType.SERVICE_STOP, EventType.ERROR -> semantic.danger
+        EventType.ALARM_FIRED, EventType.BOOT -> semantic.info
+        else -> semantic.neutral
+    }
 }

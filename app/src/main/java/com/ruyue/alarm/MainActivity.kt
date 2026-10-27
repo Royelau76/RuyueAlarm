@@ -4,12 +4,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ruyue.alarm.ui.*
 import com.ruyue.alarm.ui.theme.RuyueTheme
@@ -62,26 +66,32 @@ fun RuyueRoot(
     val backToList = { route = Route.List }
     val backToDev = { route = Route.Dev }
 
-    when (val current = route) {
-        Route.List -> ReminderListScreen(
-            vm = reminderVm,
-            onEdit = { id -> route = Route.Edit(id) },
-            onOpenDev = { route = Route.Dev },
-        )
+    // 统一底色：让"窗口背景"和"Compose 背景"一致，深色模式下不会露出白边/白闪
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        when (val current = route) {
+            Route.List -> ReminderListScreen(
+                vm = reminderVm,
+                onEdit = { id -> route = Route.Edit(id) },
+                onOpenDev = { route = Route.Dev },
+            )
 
-        is Route.Edit -> ReminderEditScreen(
-            vm = reminderVm,
-            id = current.id,
-            onBack = backToList,
-        )
+            is Route.Edit -> ReminderEditScreen(
+                vm = reminderVm,
+                id = current.id,
+                onBack = backToList,
+            )
 
-        Route.Dev -> HomeScreen(vm = m0vm, onOpen = { route = it })
-        Route.Wifi -> WifiProbeScreen(vm = m0vm, onBack = backToDev)
-        Route.Sentinel -> SentinelScreen(vm = m0vm, onBack = backToDev)
-        Route.Alarm -> AlarmTestScreen(vm = m0vm, onBack = backToDev)
-        Route.Stats -> DebounceStatsScreen(vm = m0vm, onBack = backToDev)
-        Route.Amap -> AmapFenceScreen(onBack = backToDev)
-        Route.Guide -> GuideScreen(onBack = backToDev)
-        Route.Logs -> LogsScreen(vm = m0vm, onBack = backToDev)
+            Route.Dev -> HomeScreen(vm = m0vm, onOpen = { route = it })
+            Route.Wifi -> WifiProbeScreen(vm = m0vm, onBack = backToDev)
+            Route.Sentinel -> SentinelScreen(vm = m0vm, onBack = backToDev)
+            Route.Alarm -> AlarmTestScreen(vm = m0vm, onBack = backToDev)
+            Route.Stats -> DebounceStatsScreen(vm = m0vm, onBack = backToDev)
+            Route.Amap -> AmapFenceScreen(onBack = backToDev)
+            Route.Guide -> GuideScreen(onBack = backToDev)
+            Route.Logs -> LogsScreen(vm = m0vm, onBack = backToDev)
+        }
     }
 }

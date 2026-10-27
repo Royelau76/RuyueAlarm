@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      深色模式下的平台主题。
+      为什么必须有它：原来只有 values/themes.xml 里那套 Theme.Material.Light，
+      系统切深色后窗口背景仍是白的、状态栏图标仍是深色 —— 压在深色界面上等于看不见。
+    -->
+    <style name="Theme.RuyueAlarm" parent="android:Theme.Material.NoActionBar" />
+</resources>

@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ruyue.alarm.ui.theme.LocalRuyueSemanticColors
 
 /** 所有验证页共用的外壳：返回按钮 + 标题 + 可滚动内容。 */
 @Composable
@@ -42,7 +43,7 @@ fun ScreenScaffold(
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("← 返回") }
             Spacer(Modifier.width(4.dp))
-            Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(title, style = MaterialTheme.typography.titleLarge)
         }
         Spacer(Modifier.height(8.dp))
         content()
@@ -58,16 +59,17 @@ fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
             .padding(vertical = 6.dp),
     ) {
         Column(Modifier.padding(14.dp)) {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(title, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
             content()
         }
     }
 }
 
-/** 一行「键：值」，good=true 绿色 / false 红色 / null 默认色。 */
+/** 一行「键：值」，good=true 绿色 / false 红色 / null 默认色。颜色走语义色，深色模式下也看得清。 */
 @Composable
 fun KV(key: String, value: String, good: Boolean? = null) {
+    val semantic = LocalRuyueSemanticColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -76,16 +78,16 @@ fun KV(key: String, value: String, good: Boolean? = null) {
         Text(
             text = key,
             modifier = Modifier.width(116.dp),
-            fontSize = 14.sp,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = value,
-            fontSize = 14.sp,
+            style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
             color = when (good) {
-                true -> Color(0xFF2E7D32)
-                false -> Color(0xFFC62828)
+                true -> semantic.success
+                false -> semantic.danger
                 null -> MaterialTheme.colorScheme.onSurface
             },
         )
@@ -96,7 +98,7 @@ fun KV(key: String, value: String, good: Boolean? = null) {
 fun Hint(text: String) {
     Text(
         text = text,
-        fontSize = 13.sp,
+        style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 6.dp),
     )
