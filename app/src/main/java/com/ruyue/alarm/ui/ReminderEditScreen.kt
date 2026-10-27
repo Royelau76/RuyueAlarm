@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -38,6 +39,9 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
     val locating by vm.locating.collectAsStateWithLifecycle()
 
     var manualSsid by remember { mutableStateOf("") }
+
+    // 删除前二次确认：底部「删除」现在是常驻按钮，误触就再也找不回这条提醒了
+    var confirmDelete by remember { mutableStateOf(false) }
 
     // 系统铃声选择器，选完直接写进草稿
     val ringtonePicker = rememberLauncherForActivityResult(
@@ -489,13 +493,41 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (id > 0L) {
-                    OutlinedButton(onClick = { vm.delete { onBack() } }) { Text("删除") }
+                    OutlinedButton(onClick = { confirmDelete = true }) { Text("删除") }
                 }
                 Button(
-                    onClick = { vm.save { onBack() } },
+                    onClick = {
+                        vm.save {
+                            // 保存后立刻退回列表，VM 里那条「已保存」消息来不及看见 —— 用 Toast 补上反馈
+                            Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
+                            onBack()
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                 ) { Text("保存") }
             }
+        }
+
+        if (confirmDelete) {
+            AlertDialog(
+                onDismissRequest = { confirmDelete = false },
+                title = { Text("删除这条提醒？") },
+                text = {
+                    Text("「${draft.title.ifBlank { "这条提醒" }}」删除后无法恢复。")
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmDelete = false
+                        vm.delete {
+                            Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
+                            onBack()
+                        }
+                    }) { Text("删除") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmDelete = false }) { Text("取消") }
+                },
+            )
         }
     }
 }

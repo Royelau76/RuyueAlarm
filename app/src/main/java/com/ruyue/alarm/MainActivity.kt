@@ -4,6 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -74,7 +80,16 @@ fun RuyueRoot(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        when (val current = route) {
+        // 页面切换加一点转场：淡入 + 轻微上移。原来是"瞬移"，切换时没有方向感。
+        AnimatedContent(
+            targetState = route,
+            transitionSpec = {
+                (fadeIn(tween(180)) + slideInVertically(tween(180)) { it / 24 })
+                    .togetherWith(fadeOut(tween(120)))
+            },
+            label = "route",
+        ) { current ->
+            when (current) {
             Route.List -> ReminderListScreen(
                 vm = reminderVm,
                 onEdit = { id -> route = Route.Edit(id) },
@@ -103,6 +118,7 @@ fun RuyueRoot(
             // 引导页 / 日志页都从设置进入，所以返回也回设置
             Route.Guide -> GuideScreen(onBack = { route = Route.Settings })
             Route.Logs -> LogsScreen(vm = m0vm, onBack = { route = Route.Settings })
+            }
         }
     }
 }
