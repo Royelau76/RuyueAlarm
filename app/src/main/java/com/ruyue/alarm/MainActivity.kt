@@ -29,6 +29,9 @@ sealed interface Route {
     /** M0 验证台：不再是首页，但完整保留 —— 排障与回归全靠它 */
     data object Dev : Route
 
+    /** 设置：权限引导 / 日志 / M0 验证台入口（v0.8.2 从首页右上角收进来） */
+    data object Settings : Route
+
     data object Wifi : Route
     data object Sentinel : Route
     data object Alarm : Route
@@ -75,7 +78,7 @@ fun RuyueRoot(
             Route.List -> ReminderListScreen(
                 vm = reminderVm,
                 onEdit = { id -> route = Route.Edit(id) },
-                onOpenDev = { route = Route.Dev },
+                onOpenSettings = { route = Route.Settings },
             )
 
             is Route.Edit -> ReminderEditScreen(
@@ -84,14 +87,22 @@ fun RuyueRoot(
                 onBack = backToList,
             )
 
+            Route.Settings -> SettingsScreen(
+                onBack = backToList,
+                onOpenGuide = { route = Route.Guide },
+                onOpenLogs = { route = Route.Logs },
+                onOpenDev = { route = Route.Dev },
+            )
+
             Route.Dev -> HomeScreen(vm = m0vm, onOpen = { route = it })
             Route.Wifi -> WifiProbeScreen(vm = m0vm, onBack = backToDev)
             Route.Sentinel -> SentinelScreen(vm = m0vm, onBack = backToDev)
             Route.Alarm -> AlarmTestScreen(vm = m0vm, onBack = backToDev)
             Route.Stats -> DebounceStatsScreen(vm = m0vm, onBack = backToDev)
             Route.Amap -> AmapFenceScreen(onBack = backToDev)
-            Route.Guide -> GuideScreen(onBack = backToDev)
-            Route.Logs -> LogsScreen(vm = m0vm, onBack = backToDev)
+            // 引导页 / 日志页都从设置进入，所以返回也回设置
+            Route.Guide -> GuideScreen(onBack = { route = Route.Settings })
+            Route.Logs -> LogsScreen(vm = m0vm, onBack = { route = Route.Settings })
         }
     }
 }

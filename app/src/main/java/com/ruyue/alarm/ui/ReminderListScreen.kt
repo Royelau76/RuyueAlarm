@@ -9,21 +9,32 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ruyue.alarm.BuildConfig
+import com.ruyue.alarm.alarm.ReminderScheduler
+import com.ruyue.alarm.data.MatchMode
 import com.ruyue.alarm.data.Reminder
 import com.ruyue.alarm.sentinel.SentinelController
-import com.ruyue.alarm.sentinel.SentinelService
 import com.ruyue.alarm.sentinel.ServiceState
 
+/**
+ * 首页：提醒列表。
+ *
+ * v0.8.2 重做，解决三处：
+ *  · 原来右上角是「M0 验证台」—— 开发入口不该占日常界面最显眼的位置，已收进设置页
+ *  · 原来卡片里塞了 4 行字 + Switch + "编辑"按钮（一行三个可点区域），现在**点整张卡编辑**，
+ *    右侧只留开关；触发方式改成小胶囊，扫一眼就知道靠什么触发、是「且」还是「或」
+ *  · 底部通栏「新建提醒」换成右下角 FAB
+ */
 @Composable
 fun ReminderListScreen(
     vm: ReminderViewModel,
     onEdit: (Long) -> Unit,
-    onOpenDev: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val list by vm.reminders.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -33,32 +44,35 @@ fun ReminderListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("如约", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        // ---------------- 顶部 ----------------
+        Row(
+            modifier = Modifier.padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("如约", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.width(8.dp))
             Text(
                 text = "v${BuildConfig.VERSION_NAME}",
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = onOpenDev) { Text("M0 验证台") }
+            TextButton(onClick = onOpenSettings) { Text("设置") }
         }
 
+        // ---------------- 哨兵未运行时的提示 ----------------
         if (!running) {
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                 Column(Modifier.padding(12.dp)) {
-                    Text("地点监听正在恢复中…", fontWeight = FontWeight.Bold)
+                    Text("地点监听正在恢复中…", style = MaterialTheme.typography.titleMedium)
                     val affected = list.count { it.enabled && (it.wifiEnabled || it.placeEnabled) }
-                    Text(
-                        text = buildString {
+                    Hint(
+                        buildString {
                             append("服务被系统停掉了，看门狗会在十几分钟内自动拉起；打开应用也会立刻重启它。")
                             if (affected > 0) append("\n当前有 $affected 条提醒依赖它。")
-                        },
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        }
                     )
                     Spacer(Modifier.height(8.dp))
                     Button(
@@ -69,32 +83,56 @@ fun ReminderListScreen(
             }
         }
 
-        Spacer(Modifier.height(6.dp))
-
-        if (list.isEmpty()) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text(
-                    "还没有提醒。\n点下面「新建提醒」，可以设时间、也可以设「连上某个 WiFi 时提醒」。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(list, key = { it.id }) { reminder ->
-                    ReminderCard(
-                        reminder = reminder,
-                        nextText = com.ruyue.alarm.alarm.ReminderScheduler.describeNext(reminder),
-                        onToggle = { vm.toggleEnabled(reminder) },
-                        onClick = { onEdit(reminder.id) },
-                    )
+        // ---------------- 列表 + FAB ----------------
+        Box(Modifier.weight(1f)) {
+            if (list.isEmpty()) {
+                EmptyState()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    // 底部留白：内容不要被右下角 FAB 压住
+                    contentPadding = PaddingValues(top = 6.dp, bottom = 96.dp),
+                ) {
+                    items(list, key = { it.id }) { reminder ->
+                        ReminderCard(
+                            reminder = reminder,
+                            nextText = ReminderScheduler.describeNext(reminder),
+                            onToggle = { vm.toggleEnabled(reminder) },
+                            onClick = { onEdit(reminder.id) },
+                        )
+                    }
                 }
             }
-        }
 
-        Spacer(Modifier.height(10.dp))
-        Button(onClick = { onEdit(0L) }, modifier = Modifier.fillMaxWidth()) {
-            Text("+ 新建提醒")
+            FloatingActionButton(
+                onClick = { onEdit(0L) },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 20.dp),
+            ) {
+                Text("+", fontSize = 26.sp)
+            }
         }
+    }
+}
+
+@Composable
+private fun EmptyState() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 60.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("还没有提醒", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "点右下角「+」新建。\n可以设时间，也可以设「连上某个 WiFi 时」\n或「到某个地点时」提醒。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -105,35 +143,119 @@ private fun ReminderCard(
     onToggle: () -> Unit,
     onClick: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+    ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(
-                    text = reminder.title.ifBlank { "（未命名）" },
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = reminder.triggerSummary(),
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (nextText != null && reminder.enabled) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "下次：$nextText",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = reminder.title.ifBlank { "（未命名）" },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (reminder.enabled) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    if (!reminder.enabled) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "已停用",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+                TriggerChips(reminder)
+
+                if (nextText != null && reminder.enabled) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "下次 · $nextText",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
                 if (reminder.note.isNotBlank()) {
-                    Text(text = reminder.note, fontSize = 13.sp)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = reminder.note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
+
+            Spacer(Modifier.width(8.dp))
             Switch(checked = reminder.enabled, onCheckedChange = { onToggle() })
-            TextButton(onClick = onClick) { Text("编辑") }
+        }
+    }
+}
+
+/**
+ * 触发方式小胶囊：一眼看出这条提醒靠什么触发，以及多个条件之间是「且」还是「或」。
+ *
+ * 之前是一行纯文字摘要（「连上 TP-LINK_1602_5G 或 到 公司（300m 内）」），
+ * 长 SSID 会把卡片撑成三四行 —— 这里改成固定短标签，宽度可控。
+ */
+@Composable
+private fun TriggerChips(reminder: Reminder) {
+    val labels = buildList {
+        if (reminder.timeEnabled) {
+            add("%02d:%02d".format(reminder.hour, reminder.minute))
+        }
+        if (reminder.wifiEnabled) {
+            val count = reminder.ssidList.size
+            add(if (count > 1) "WiFi ×$count" else "WiFi")
+        }
+        if (reminder.placeEnabled) {
+            add("地点 " + reminder.placeName.ifBlank { "已设" }.take(6))
+        }
+    }
+
+    if (labels.isEmpty()) {
+        Text(
+            text = "还没设置触发条件",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+        return
+    }
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        labels.forEachIndexed { index, label ->
+            if (index > 0) {
+                Text(
+                    text = if (reminder.matchMode == MatchMode.ALL) "且" else "或",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Text(
+                    text = label,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
         }
     }
 }
