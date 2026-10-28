@@ -73,6 +73,12 @@ class SentinelService : Service() {
         startForegroundCompat(buildNotification())
         registerWifiCallback()
         refreshLocationUpdates()
+        // 高德围栏探针（M0 第 4 项实验）：只有用户在验证页主动开启过才挂上。
+        // 为什么放在服务里：高德明确要求围栏客户端跑在**常驻的本地服务**里，
+        // 否则息屏/后台时测不到触发（而"后台能不能触发"正是这次要验的点之一）。
+        if (com.ruyue.alarm.amap.AmapFenceProbe.isEnabled(this)) {
+            com.ruyue.alarm.amap.AmapFenceProbe.attach(this)
+        }
         // 服务活着的时候也把看门狗排上，避免自愈链因为某次漏排而断掉
         SentinelWatchdog.schedule(this)
 
@@ -117,6 +123,15 @@ class SentinelService : Service() {
             refreshLocationUpdates()
             return Service.START_STICKY
         }
+        // 高德围栏探针的开/关（由 AmapFenceProbe 从验证页发指令过来）
+        if (intent?.action == ACTION_AMAP_START) {
+            com.ruyue.alarm.amap.AmapFenceProbe.attach(this)
+            return Service.START_STICKY
+        }
+        if (intent?.action == ACTION_AMAP_STOP) {
+            com.ruyue.alarm.amap.AmapFenceProbe.detach(this)
+            return Service.START_STICKY
+        }
         setWanted(this, true)
         return Service.START_STICKY
     }
@@ -125,6 +140,8 @@ class SentinelService : Service() {
         ServiceState.running.value = false
         callback?.let { cb -> connectivity?.let { runCatching { it.unregisterNetworkCallback(cb) } } }
         detachLocationUpdates()
+        // 高德围栏客户端也跟着服务一起收（进程没了它本来也活不成，这里只是干净收尾）
+        runCatching { com.ruyue.alarm.amap.AmapFenceProbe.detach(this) }
 
         // onDestroy 之后 scope 就要被取消了，所以另起一个短命线程把「服务停止」写进库，
         // 保证这条最关键的证据不会因为协程被取消而丢掉。
@@ -402,6 +419,10 @@ class SentinelService : Service() {
     companion object {
         const val ACTION_STOP = "com.ruyue.alarm.action.STOP_SENTINEL"
         const val ACTION_REFRESH = "com.ruyue.alarm.action.REFRESH_TRIGGERS"
+
+        /** 高德围栏探针：开启 / 停止（M0 第 4 项实验用） */
+        const val ACTION_AMAP_START = "com.ruyue.alarm.action.AMAP_PROBE_START"
+        const val ACTION_AMAP_STOP = "com.ruyue.alarm.action.AMAP_PROBE_STOP"
         private const val NOTIF_ID = 1001
         private const val PREFS = "sentinel_prefs"
         private const val KEY_WANTED = "wanted"

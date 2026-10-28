@@ -123,5 +123,18 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- ================= 高德定位 SDK（M0 第 4 项实验）=================
+             key 由构建时注入（local.properties 的 AMAP_KEY → manifestPlaceholders），
+             不进版本库。key 绑定「包名 + 签名 SHA1」，换签名就要重新申请。 -->
+        <meta-data
+            android:name="com.amap.api.v2.apikey"
+            android:value="${amapKey}" />
+
+        <!-- 高德 SDK 的辅助定位服务（辅助定位/H5 定位用，SDK 内部会拉起） -->
+        <service
+            android:name="com.amap.api.location.APSService"
+            android:enabled="true"
+            android:exported="false" />
     </application>
 </manifest>
