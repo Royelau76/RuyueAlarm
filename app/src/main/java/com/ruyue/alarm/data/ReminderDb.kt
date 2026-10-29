@@ -17,10 +17,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *   · 提醒库自己演进，出问题也只影响提醒数据
  * 语义上也更清楚：一个是可丢弃的诊断日志，一个是不能丢的用户数据。
  */
-@Database(entities = [Reminder::class, SsidHistory::class], version = 3, exportSchema = false)
+@Database(entities = [Reminder::class, SsidHistory::class, SavedPlace::class], version = 4, exportSchema = false)
 abstract class ReminderDatabase : RoomDatabase() {
     abstract fun reminderDao(): ReminderDao
     abstract fun ssidHistoryDao(): SsidHistoryDao
+    abstract fun savedPlaceDao(): SavedPlaceDao
 
     companion object {
         const val NAME = "ruyue_reminders.db"
@@ -54,6 +55,30 @@ abstract class ReminderDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE reminders ADD COLUMN volumeRampSeconds INTEGER NOT NULL DEFAULT 15")
             }
         }
+
+        /**
+         * v3 → v4：新增「收藏的地点」表。
+         *
+         * ⚠️ 建表语句必须和 Room 由实体生成的期望 schema **逐字符对得上**（列名/类型/NOT NULL/
+         * 主键 AUTOINCREMENT 都一样），否则 Room 校验失败 → **App 启动即崩**。
+         * 这条 SQL 是对着构建产物里 `ReminderDatabase_Impl` 的 `createAllTables` 抄下来的，
+         * 并且用离线 sqlite 跑过「v3 建库 → 插数据 → 迁移 → 与期望 schema 逐列比对」。
+         */
+        val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `saved_places` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`latitude` REAL NOT NULL, " +
+                        "`longitude` REAL NOT NULL, " +
+                        "`radiusMeters` INTEGER NOT NULL, " +
+                        "`address` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`lastUsedAt` INTEGER NOT NULL)"
+                )
+            }
+        }
     }
 }
 
@@ -68,7 +93,11 @@ object ReminderDb {
                 ReminderDatabase::class.java,
                 ReminderDatabase.NAME,
             )
-                .addMigrations(ReminderDatabase.MIGRATION_1_2, ReminderDatabase.MIGRATION_2_3)
+                .addMigrations(
+                    ReminderDatabase.MIGRATION_1_2,
+                    ReminderDatabase.MIGRATION_2_3,
+                    ReminderDatabase.MIGRATION_3_4,
+                )
                 .build()
                 .also { instance = it }
         }

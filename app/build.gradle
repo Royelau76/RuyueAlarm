@@ -26,8 +26,8 @@ android {
         applicationId "com.ruyue.alarm"
         minSdk 26
         targetSdk 34
-        versionCode 58
-        versionName "0.10.0-m2"
+        versionCode 59
+        versionName "0.11.0-m2"
         buildConfigField "String", "AMAP_KEY", "\"${amapKey}\""
         // 高德 SDK 从 AndroidManifest 的 meta-data 读 key（构建时注入，key 不进版本库）
         manifestPlaceholders = [amapKey: amapKey]

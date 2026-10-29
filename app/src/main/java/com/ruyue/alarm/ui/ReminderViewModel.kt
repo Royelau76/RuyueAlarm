@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.ruyue.alarm.alarm.ReminderScheduler
 import com.ruyue.alarm.data.Reminder
 import com.ruyue.alarm.data.ReminderRepository
+import com.ruyue.alarm.data.SavedPlace
+import com.ruyue.alarm.data.SavedPlaceRepository
 import com.ruyue.alarm.data.SsidHistory
 import com.ruyue.alarm.sentinel.SentinelController
 import com.ruyue.alarm.sentinel.SentinelService
@@ -25,6 +27,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ReminderViewModel @Inject constructor(
     private val repo: ReminderRepository,
+    private val placeRepo: SavedPlaceRepository,
     @ApplicationContext private val app: Context,
 ) : ViewModel() {
 
@@ -33,6 +36,10 @@ class ReminderViewModel @Inject constructor(
 
     /** 用过的 WiFi，给编辑页「点一下加入」 */
     val ssidHistory: StateFlow<List<SsidHistory>> = repo.ssidHistory
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 收藏的地点，给编辑页「点一下就用」 */
+    val savedPlaces: StateFlow<List<SavedPlace>> = placeRepo.places
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** 编辑草稿；id == 0 表示新建 */
@@ -99,6 +106,51 @@ class ReminderViewModel @Inject constructor(
     }
 
     // ---------------- 地点 ----------------
+
+    /**
+     * 把收藏的地点填进草稿。
+     *
+     * ⚠️ 是**快照**：填完之后提醒和这条收藏就没有关系了 ——
+     * 以后改动/删除收藏，不会悄悄改变这条提醒的触发范围（反过来也一样）。
+     */
+    fun applySavedPlace(id: Long) {
+        viewModelScope.launch {
+            val place = placeRepo.byId(id) ?: return@launch
+            updateDraft {
+                it.copy(
+                    placeEnabled = true,
+                    placeName = place.name,
+                    latitude = place.latitude,
+                    longitude = place.longitude,
+                    radiusMeters = place.radiusMeters,
+                )
+            }
+            placeRepo.touch(id)
+            _message.value = "已填入「${place.name}」（${place.radiusMeters} 米）"
+        }
+    }
+
+    /** 把草稿里当前的地点存为收藏（同名覆盖，不堆重复项） */
+    fun saveDraftPlaceAsFavorite() {
+        val d = _draft.value
+        if (d.latitude == 0.0 && d.longitude == 0.0) {
+            _message.value = "还没有坐标：先点「用当前位置」记录一下，再存为收藏"
+            return
+        }
+        val name = d.placeName.trim()
+        if (name.isBlank()) {
+            _message.value = "先给这个地点起个名字（比如「公司」），再存为收藏"
+            return
+        }
+        viewModelScope.launch {
+            placeRepo.save(name, d.latitude, d.longitude, d.radiusMeters)
+            _message.value = "已收藏「$name」，下次点一下就能用"
+        }
+    }
+
+    fun deleteSavedPlace(id: Long) {
+        viewModelScope.launch { placeRepo.delete(id) }
+    }
 
     /**
      * 记录当前位置作为目标地点。

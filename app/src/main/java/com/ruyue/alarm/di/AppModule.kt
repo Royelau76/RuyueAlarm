@@ -7,6 +7,8 @@ import com.ruyue.alarm.data.EventLogDao
 import com.ruyue.alarm.data.ReminderDao
 import com.ruyue.alarm.data.ReminderDatabase
 import com.ruyue.alarm.data.ReminderDb
+import com.ruyue.alarm.data.SavedPlaceDao
+import com.ruyue.alarm.data.SavedPlaceRepository
 import com.ruyue.alarm.data.SsidHistoryDao
 import dagger.Module
 import dagger.Provides
@@ -37,4 +39,12 @@ object AppModule {
 
     @Provides
     fun provideSsidHistoryDao(db: ReminderDatabase): SsidHistoryDao = db.ssidHistoryDao()
+
+    @Provides
+    fun provideSavedPlaceDao(db: ReminderDatabase): SavedPlaceDao = db.savedPlaceDao()
+
+    @Provides
+    @Singleton
+    fun provideSavedPlaceRepository(dao: SavedPlaceDao): SavedPlaceRepository =
+        SavedPlaceRepository(dao)
 }

@@ -7,12 +7,16 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -25,9 +29,11 @@ import com.ruyue.alarm.alarm.ReminderScheduler
 import com.ruyue.alarm.alarm.RingActivity
 import com.ruyue.alarm.data.MatchMode
 import com.ruyue.alarm.data.Repeat
+import com.ruyue.alarm.data.SavedPlace
 import com.ruyue.alarm.util.LocationHelper
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
     LaunchedEffect(id) { vm.startEdit(id) }
 
@@ -35,6 +41,7 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
     val draft by vm.draft.collectAsStateWithLifecycle()
     val currentSsid by vm.currentSsid.collectAsStateWithLifecycle()
     val history by vm.ssidHistory.collectAsStateWithLifecycle()
+    val savedPlaces by vm.savedPlaces.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
     val locating by vm.locating.collectAsStateWithLifecycle()
 
@@ -42,6 +49,18 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
 
     // 删除前二次确认：底部「删除」现在是常驻按钮，误触就再也找不回这条提醒了
     var confirmDelete by remember { mutableStateOf(false) }
+
+    // 收藏地点的长按删除确认
+    var pendingDeletePlace by remember { mutableStateOf<SavedPlace?>(null) }
+
+    // 收藏列表要显示「离你多远」：取一次**缓存**位置（cacheFirst，不会额外开 GPS）
+    var myLat by remember { mutableStateOf<Double?>(null) }
+    var myLon by remember { mutableStateOf<Double?>(null) }
+    LaunchedEffect(Unit) {
+        val loc = LocationHelper.current(context, cacheFirst = true) ?: return@LaunchedEffect
+        myLat = loc.latitude
+        myLon = loc.longitude
+    }
 
     // 系统铃声选择器，选完直接写进草稿
     val ringtonePicker = rememberLauncherForActivityResult(
@@ -319,15 +338,57 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                     },
                     fontSize = 14.sp,
                 )
-                Spacer(Modifier.height(6.dp))
-                Button(
-                    onClick = { vm.pickCurrentLocation() },
-                    enabled = !locating,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(if (locating) "定位中…" else "用当前位置") }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { vm.pickCurrentLocation() },
+                        enabled = !locating,
+                        modifier = Modifier.weight(1f),
+                    ) { Text(if (locating) "定位中…" else "用当前位置") }
+                    OutlinedButton(
+                        onClick = { vm.saveDraftPlaceAsFavorite() },
+                        enabled = hasPoint,
+                    ) { Text("存为收藏") }
+                }
+
+                // ---- 收藏的地点：点一下就用，长按删除 ----
+                if (savedPlaces.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    Text("收藏的地点（点一下就用 · 长按删除）", fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        savedPlaces.forEach { place ->
+                            val distance = if (myLat != null && myLon != null) {
+                                LocationHelper.distanceMeters(
+                                    myLat!!, myLon!!, place.latitude, place.longitude,
+                                )
+                            } else {
+                                null
+                            }
+                            PlaceChip(
+                                name = place.name,
+                                detail = buildString {
+                                    append("${place.radiusMeters}m")
+                                    if (distance != null) {
+                                        append(" · ")
+                                        append(
+                                            if (distance >= 1000f) "离你 %.1fkm".format(distance / 1000f)
+                                            else "离你 ${distance.toInt()}m"
+                                        )
+                                    }
+                                },
+                                onClick = { vm.applySavedPlace(place.id) },
+                                onLongClick = { pendingDeletePlace = place },
+                            )
+                        }
+                    }
+                }
 
                 Hint(
-                    "不做地图选点：站在要提醒的地方按一下最省事，也省掉一整套地图 SDK 和 key。\n" +
+                    "站在要提醒的地方按一下「用当前位置」最准；常去的地方存成收藏，以后点一下就行。\n" +
                         "精度：室外 10~30 米，室内靠 WiFi/基站约 50~200 米 —— 所以半径别设太小。"
                 )
 
@@ -527,6 +588,57 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                 dismissButton = {
                     TextButton(onClick = { confirmDelete = false }) { Text("取消") }
                 },
+            )
+        }
+
+        // 收藏地点的长按删除确认
+        pendingDeletePlace?.let { place ->
+            AlertDialog(
+                onDismissRequest = { pendingDeletePlace = null },
+                title = { Text("删除收藏「${place.name}」？") },
+                text = { Text("只删这条收藏；已经用它的提醒不受影响（提醒里存的是自己的坐标）。") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        vm.deleteSavedPlace(place.id)
+                        pendingDeletePlace = null
+                    }) { Text("删除") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDeletePlace = null }) { Text("取消") }
+                },
+            )
+        }
+    }
+}
+
+/**
+ * 收藏地点的小胶囊：点一下填入，长按删除。
+ *
+ * 用 `combinedClickable` 而不是 `Button` —— 需要长按，而 `Button` 只有单击。
+ */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
+@Composable
+private fun PlaceChip(
+    name: String,
+    detail: String,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 7.dp)) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
         }
     }
