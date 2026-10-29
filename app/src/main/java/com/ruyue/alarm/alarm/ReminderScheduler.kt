@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import com.ruyue.alarm.data.Reminder
+import com.ruyue.alarm.trigger.Ledger
 import com.ruyue.alarm.data.Repeat
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -80,6 +81,8 @@ object ReminderScheduler {
     fun schedule(context: Context, reminder: Reminder) {
         val at = nextTriggerAt(reminder) ?: return
         scheduleAt(context, at, reminder.id, reminder.title, reminder.note)
+        // 记一笔「本应在此刻响」——自检对账用。幂等，重复排期不会记出多条。
+        Ledger.recordExpected(context, reminder.id, reminder.title, at)
     }
 
     /**
@@ -138,6 +141,8 @@ object ReminderScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         runCatching { am.cancel(pi) }
+        // 这笔账作废：提醒被删/停用之后不该再被算成"该响没响"
+        Ledger.settleCancelled(context, reminderId)
     }
 
     /** 开机 / 时区变更 / 应用更新后，把所有启用中的时间提醒重新排一遍 */

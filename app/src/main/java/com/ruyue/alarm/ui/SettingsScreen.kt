@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.ruyue.alarm.BuildConfig
+import com.ruyue.alarm.trigger.Ledger
 import com.ruyue.alarm.util.Backup
+import kotlinx.coroutines.launch
 
 /**
  * 设置页。
@@ -28,8 +30,17 @@ fun SettingsScreen(
     onOpenDev: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     // 备份小结点这里存一份：点完"立即备份"要能立刻看到变化
     var backupSummary by remember { mutableStateOf(Backup.summary(context)) }
+
+    // 对账小结：最近 7 天该响几条、实际响了几条
+    var ledgerLine by remember { mutableStateOf("正在读对账数据…") }
+    LaunchedEffect(Unit) {
+        val s = Ledger.stats(context)
+        ledgerLine = "最近 7 天：应响 ${s.expected} · 实际响 ${s.fired}" +
+            " · 按设计跳过 ${s.skipped} · 漏掉 ${s.missed}"
+    }
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -74,6 +85,29 @@ fun SettingsScreen(
                 },
             )
             Hint(backupSummary)
+
+            // 触发对账：「提醒到底会不会响」这件事的可检测版本
+            SettingsItem(
+                title = "自检对账",
+                desc = "核一遍「该响的提醒是不是都响了」；后台每天也会自动跑一次",
+                onClick = {
+                    scope.launch {
+                        val report = Ledger.runCheck(context, force = true)
+                        val stats = Ledger.stats(context)
+                        ledgerLine = "最近 7 天：应响 ${stats.expected} · 实际响 ${stats.fired}" +
+                            " · 按设计跳过 ${stats.skipped} · 漏掉 ${stats.missed}"
+                        val text = if (report.hasMissed) {
+                            "⚠️ 发现 ${report.missed.size} 条该响没响：" +
+                                report.missed.take(2).joinToString("、") { it.title } +
+                                "（详情已推送到通知栏）"
+                        } else {
+                            "✓ 对账正常：最近 7 天应响 ${stats.expected} 条，实际响 ${stats.fired} 条"
+                        }
+                        Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+                    }
+                },
+            )
+            Hint(ledgerLine)
             SettingsItem(
                 title = "M0 验证台",
                 desc = "WiFi 权限 / 保活 / 全屏闹钟 / 连断统计 / 高德 —— 回归与排障入口",

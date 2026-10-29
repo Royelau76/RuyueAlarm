@@ -17,11 +17,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *   · 提醒库自己演进，出问题也只影响提醒数据
  * 语义上也更清楚：一个是可丢弃的诊断日志，一个是不能丢的用户数据。
  */
-@Database(entities = [Reminder::class, SsidHistory::class, SavedPlace::class], version = 4, exportSchema = false)
+@Database(
+    entities = [Reminder::class, SsidHistory::class, SavedPlace::class, ExpectedFire::class],
+    version = 5,
+    exportSchema = false,
+)
 abstract class ReminderDatabase : RoomDatabase() {
     abstract fun reminderDao(): ReminderDao
     abstract fun ssidHistoryDao(): SsidHistoryDao
     abstract fun savedPlaceDao(): SavedPlaceDao
+    abstract fun expectedFireDao(): ExpectedFireDao
 
     companion object {
         const val NAME = "ruyue_reminders.db"
@@ -79,6 +84,36 @@ abstract class ReminderDatabase : RoomDatabase() {
                 )
             }
         }
+
+        /**
+         * v4 → v5：新增「预期触发台账」表（自检对账用）。
+         *
+         * 同样：建表 + 建索引语句必须与 Room 由实体生成的期望 schema 逐字符一致，
+         * 否则启动即崩。用 `tools/verify_migration_v4_v5.py` 离线验过。
+         */
+        val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `expected_fires` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`reminderId` INTEGER NOT NULL, " +
+                        "`title` TEXT NOT NULL, " +
+                        "`expectedAt` INTEGER NOT NULL, " +
+                        "`state` TEXT NOT NULL, " +
+                        "`settledAt` INTEGER NOT NULL, " +
+                        "`reason` TEXT NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                        "`index_expected_fires_reminderId_expectedAt` " +
+                        "ON `expected_fires` (`reminderId`, `expectedAt`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_expected_fires_expectedAt` " +
+                        "ON `expected_fires` (`expectedAt`)"
+                )
+            }
+        }
     }
 }
 
@@ -97,6 +132,7 @@ object ReminderDb {
                     ReminderDatabase.MIGRATION_1_2,
                     ReminderDatabase.MIGRATION_2_3,
                     ReminderDatabase.MIGRATION_3_4,
+                    ReminderDatabase.MIGRATION_4_5,
                 )
                 .build()
                 .also { instance = it }

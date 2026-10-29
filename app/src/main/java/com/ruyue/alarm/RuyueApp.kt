@@ -41,6 +41,11 @@ class RuyueApp : Application() {
     private fun rescheduleOnAppOpen() {
         val app = applicationContext
         Thread {
+            // 打开 App 也补一次「触发对账」：定时链路在 force-stop 之后会断，
+            // 用户打开 App 是唯一可靠的补扫时机（内部有 20 小时节流）
+            runCatching {
+                runBlocking { com.ruyue.alarm.trigger.Ledger.runCheck(app) }
+            }
             runCatching {
                 val all = runBlocking { ReminderDb.get(app).reminderDao().enabled() }
                 ReminderScheduler.rescheduleAll(app, all)

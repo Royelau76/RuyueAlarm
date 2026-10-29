@@ -95,6 +95,10 @@ class WatchdogReceiver : BroadcastReceiver() {
 
         val pending = goAsync()
         Thread {
+            // 顺带跑一次「触发对账」：确认上次该响的提醒都真的响了。
+            // 内部有 20 小时节流，不是每 10 分钟都干活；失败绝不能影响下面的保活判断。
+            runCatching { runBlocking { com.ruyue.alarm.trigger.Ledger.runCheck(context) } }
+
             val wanted = SentinelService.isWanted(context)
             val running = ServiceState.running.value
             val lastBeat = runCatching {

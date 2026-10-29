@@ -472,6 +472,12 @@ object TriggerEngine {
                     ReminderScheduler.schedule(context, reminder)
                     log.log(EventType.NOTE, detail = "「$title」的下一次已照常排定")
                 }
+                // 对账：这是**按设计跳过**，不能报成「该响没响」
+                Ledger.settleSkipped(
+                    context,
+                    reminderId,
+                    reason = "缺少 ${unmet.joinToString("；")}",
+                )
                 return
             }
         }
@@ -496,6 +502,8 @@ object TriggerEngine {
             reminder?.ringtoneUri.orEmpty(),
             reminder?.volumeRampSeconds ?: 0,
         )
+        // 对账销账：真的响了
+        Ledger.settleFired(context, reminderId)
     }
 
     // ---------------- 「且」模式的实时条件检查 ----------------
