@@ -1,132 +1,73 @@
 package com.ruyue.alarm.ui
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ruyue.alarm.BuildConfig
-import com.ruyue.alarm.amap.AmapFenceProbe
-import com.ruyue.alarm.util.LocationHelper
-import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
- * M0 第 4 项：高德地理围栏验证。
+ * M0 第 4 项：高德围栏 —— **未测成，已撤下**。
  *
- * 这一页**只做实验**，不参与正式提醒（正式的地点触发仍然是自研 `LocationManager` 围栏）。
- * 目的只有一个：拿真实数据回答"要不要换成高德围栏"。
+ * 这里只留一张说明页，理由必须记清楚：
  *
- * 要测的三件事：
- *  ① 进入 → 事件延迟（自研实测 61 秒 ~ 3 分 19 秒）
- *  ② 息屏 + 锁屏下还能不能触发
- *  ③ 跑一天的耗电差（自研实测 0.03%）
+ * 2026-10-28 接入高德定位 SDK 做围栏实验，12 小时结果是"零触发 + 几百条
+ * 「定位错误码 4 = 请求服务器异常」+ 耗电 9.8%"。当时判断成"高德不行"，
+ * **但那个结论是错的** —— 2026-10-29 做「按地址找」时才发现 App 里
+ * **从来没有 INTERNET 权限**，SDK 的所有网络请求都被系统拒绝，然后在失败循环里整夜重试。
+ *
+ * 所以：**高德围栏的真实延迟与耗电仍然未知**。要复测得先把定位 SDK 重新接回来
+ * （代码在 git 历史 v0.9.0），并且这次别忘了权限。
+ *
+ * 为什么现在不测了：自研 `LocationManager` 围栏已经实测达标（0.03% 耗电、
+ * 到访→响铃 61 秒~3 分 19 秒），没必要为了一个未知去换；而且定位 SDK 是 2.3MB 的
+ * 闭源组件，还要额外的隐私声明。
  */
 @Composable
 fun AmapFenceScreen(onBack: () -> Unit) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val probe by AmapFenceProbe.state.collectAsStateWithLifecycle()
+    ScreenScaffold("④ 高德围栏（已撤下，未测成）", onBack) {
 
-    ScreenScaffold("④ 高德围栏验证", onBack) {
-
-        SectionCard("当前状态") {
-            KV(
-                "AMAP_KEY",
-                if (BuildConfig.AMAP_KEY.isBlank()) "未配置（写进 local.properties）"
-                else "已配置（${BuildConfig.AMAP_KEY.take(4)}…）",
-                BuildConfig.AMAP_KEY.isNotBlank(),
-            )
-            KV("探针", if (probe.enabled) "已开启" else "未开启", probe.enabled)
-            KV("客户端", if (probe.attached) "已附着在哨兵服务" else "未附着", probe.attached)
-            KV(
-                "围栏",
-                if (probe.fenceCreated) "创建成功（${probe.fenceCount} 个）" else "未创建 / 失败",
-                probe.fenceCreated,
-            )
-            if (probe.lat != 0.0 || probe.lon != 0.0) {
-                KV("中心", "%.5f, %.5f".format(probe.lat, probe.lon))
-                KV("半径", "${probe.radius.toInt()} 米")
-            }
-            if (probe.lastEvent.isNotBlank()) {
-                val time = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault())
-                    .format(Date(probe.lastEventAt))
-                KV("最近事件", "${probe.lastEvent}（$time）")
-            }
-            if (probe.error.isNotBlank()) {
-                KV("错误", probe.error, false)
-            }
-        }
-
-        SectionCard("操作") {
+        SectionCard("现在的状态") {
+            Text("这一项**没有结论**：既不能说高德行，也不能说不行。")
             Hint(
-                "「用当前位置建围栏」= 取一次系统定位作为圆心，半径 200 米，进出都会触发。\n" +
-                    "建好后探针挂在哨兵服务里持续运行，**锁屏/息屏也会继续检测**。"
-            )
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            val loc = LocationHelper.current(context, cacheFirst = false)
-                            if (loc == null) {
-                                AmapFenceProbe.reportLocationFailure(
-                                    "取不到当前位置：确认系统定位已开、权限给的是「精确位置」，" +
-                                        "再到窗边或室外重试"
-                                )
-                                return@launch
-                            }
-                            AmapFenceProbe.start(
-                                context,
-                                loc.latitude,
-                                loc.longitude,
-                                200f,
-                            )
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                ) { Text("用当前位置建围栏") }
-
-                OutlinedButton(onClick = { AmapFenceProbe.stop(context) }) { Text("停止") }
-            }
-        }
-
-        SectionCard("怎么判读（这才是重点）") {
-            Text(
-                "建好围栏后，去外面走一圈再回来，然后到「设置 → 运行日志」里对比：",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(8.dp))
-            Hint(
-                "· 高德的记录是  AMAP_FENCE   —— 「进入围栏 / 离开围栏」\n" +
-                    "· 自研的记录是  NOTE         —— 「接近「公司」（粗定位距离 …m）」/「离开「公司」」\n\n" +
-                    "两条记录的时间戳相减，就是两者的延迟差 —— 这是这次实验最硬的数据。"
-            )
-            Spacer(Modifier.height(10.dp))
-            Hint(
-                "如果建围栏就失败，看「错误」那一行：\n" +
-                    "· 鉴权失败 → key / 包名 / SHA1 有一个对不上（最常见的是 SHA1 填错栏位）\n" +
-                    "· 参数错误 → 坐标或半径不合法（0,0 说明还没取到位置）\n" +
-                    "· 网络连接失败 → 高德服务器连不上（挂代理/断网时会出现）"
+                "2026-10-28 那次实验是**测试环境坏了**，不是高德的问题 —— 详见下面。"
             )
         }
 
-        SectionCard("已知的硬约束（官方文档明确写的）") {
+        SectionCard("那次实验为什么失败（重要）") {
             Hint(
-                "· 定位权限被设成「模糊定位」时，围栏**直接不工作** —— 必须「精确位置」\n" +
-                    "· 必须调过 updatePrivacyShow / updatePrivacyAgree（代码里已处理）\n" +
-                    "· 围栏客户端要跑在常驻的本地服务里才能后台检测（已挂在哨兵服务里）\n" +
-                    "· 高德会收集 WiFi 列表/BSSID/OAID 等设备信息 —— 上架前需要隐私合规声明"
+                "接入高德定位 SDK 后跑了 12 小时：\n" +
+                    "· 围栏一次都没触发\n" +
+                    "· 日志里几百条「围栏定位失败（定位错误码=4）」\n" +
+                    "· 耗电 9.8%（自研围栏同期 0.03%）\n\n" +
+                    "当时的判断是「高德不可用」。**但这个判断是错的**：\n" +
+                    "10-29 做「按地址找」时才发现，App 的清单里**从来没有 INTERNET 权限** ——\n" +
+                    "SDK 的所有网络请求都被系统直接拒绝（错误码 4 正是「请求服务器异常」），\n" +
+                    "然后 SDK 在失败循环里整夜重试，把电烧掉了。"
             )
         }
+
+        SectionCard("要复测需要什么") {
+            Hint(
+                "1. 把高德定位 SDK 的 AAR 放回 app/libs/（历史版本 v0.9.0 里有完整实现）\n" +
+                    "2. INTERNET 权限已经不缺了（v0.12.0 补上）\n" +
+                    "3. 手机侧关掉代理/VPN，再确认「精确位置」权限\n\n" +
+                    "复测要回答的还是那三个数：进入→事件延迟、息屏锁屏能不能触发、跑一天耗电。"
+            )
+        }
+
+        SectionCard("为什么现在不测") {
+            Hint(
+                "自研方案已经实测达标：\n" +
+                    "· 耗电 0.03%（≈ 平均 0.02mA，低于手机测量精度）\n" +
+                    "· 到访→响铃 61 秒 ~ 3 分 19 秒\n" +
+                    "· 零第三方 SDK、零 key、零隐私声明\n\n" +
+                    "而高德定位 SDK 是 2.3MB 闭源组件，还要在隐私政策里单列第三方 SDK 采集的设备信息。\n" +
+                    "为一个未知的收益去背这些负债，不划算。"
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
     }
 }

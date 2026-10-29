@@ -16,8 +16,8 @@ def localPropsFile = rootProject.file('local.properties')
 if (localPropsFile.exists()) {
     localPropsFile.withInputStream { localProps.load(it) }
 }
-def amapKey = localProps.getProperty('AMAP_KEY') ?: (project.findProperty('AMAP_KEY') ?: '')
-// 「Web服务」类型的 key，用于「按地址找」（地理编码 / POI 搜索 / 静态地图）
+// 「Web服务」类型的 key，用于「按地址找」（POI 搜索 / 地理编码 / 静态地图）
+// 注意：这是 Web 服务 key（不是 Android 平台 key），只用于 HTTPS 请求，不需要进清单
 def amapWebKey = localProps.getProperty('AMAP_WEB_KEY') ?: (project.findProperty('AMAP_WEB_KEY') ?: '')
 
 android {
@@ -28,12 +28,9 @@ android {
         applicationId "com.ruyue.alarm"
         minSdk 26
         targetSdk 34
-        versionCode 60
-        versionName "0.12.0-m2"
-        buildConfigField "String", "AMAP_KEY", "\"${amapKey}\""
+        versionCode 61
+        versionName "0.13.0-m2"
         buildConfigField "String", "AMAP_WEB_KEY", "\"${amapWebKey}\""
-        // 高德 SDK 从 AndroidManifest 的 meta-data 读 key（构建时注入，key 不进版本库）
-        manifestPlaceholders = [amapKey: amapKey]
     }
 
     buildTypes {
@@ -94,11 +91,4 @@ dependencies {
     implementation 'androidx.hilt:hilt-navigation-compose:1.1.0'
 
     debugImplementation 'androidx.compose.ui:ui-tooling'
-
-    // ---- 高德定位 / 地理围栏（M0 第 4 项）----
-    // ⚠️ 不能用 `implementation 'com.amap.api:location:x.y.z'`：
-    //    该坐标当年发布在 jcenter，而 jcenter 已于 2022 年关停，
-    //    google()/mavenCentral() 都解析不到，那样写会直接构建失败。
-    // 正确做法：把高德官网下载的 AAR 放进 app/libs/（见 app/libs/README.md）。
-    implementation fileTree(dir: 'libs', include: ['*.aar', '*.jar'])
 }

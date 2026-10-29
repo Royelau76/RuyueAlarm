@@ -1,36 +1,25 @@
-# 第三方 SDK 放这里（高德定位，M0 第 4 项）
+# 本目录现在**不需要任何第三方 SDK**
 
-## 放什么
+「按地址找」用的是高德 **Web 服务 API**（HTTPS + JSON），直接在代码里请求，
+没有任何本地 SDK 依赖 —— 见 `app/src/main/java/com/ruyue/alarm/net/AmapWebApi.kt`。
 
-从高德开放平台下载的**定位 SDK AAR**：
+## 曾经放过什么（2026-10-28 ~ 10-29）
 
-- 下载页：https://lbs.amap.com/api/android-location-sdk/download
-- 选 **AAR 包下载**（不要选 jar 那个）—— AAR 里自带 `armeabi-v7a/arm64-v8a` 的 `.so`，
-  放这一个文件就够；jar 版还得手工摆 `jniLibs`，容易漏。
-- 文件名形如 `AMap_Location_V11.3.101.aar`
-- 直接放在本目录下即可（`app/libs/`），gradle 已配好从 `libs` 加载 `*.aar`
+这里曾经放过 `AMapLocation_11.3.101_20260924.aar`（高德**定位** SDK，2.8MB），
+用于 M0 第 4 项的「高德地理围栏」实验。那次实验失败（零触发 + 耗电 9.8%），
+后来查明**真实原因是 App 缺 `INTERNET` 权限**（v0.12.0 已补），跟高德本身无关。
 
-## 为什么不在 Maven 里
+SDK 已于 v0.13.0 移除：
 
-`com.amap.api:location` 当年发布在 jcenter，而 **jcenter 已于 2022 年关闭**，
-现在 google()/mavenCentral() 都解析不到 —— `app/build.gradle` 里那行 `// implementation 'com.amap.api:location:6.4.5'`
-是历史遗留，**不要再打开它**，否则构建会因为解析失败而失败。
+- APK 从 12.2MB 降到约 9.9MB
+- 少一个采集 WiFi 列表/BSSID/OAID 的闭源组件，上架时少一份第三方 SDK 隐私声明
+- 想复测的话，完整实现还在 git 历史里（v0.9.0 的 `amap/AmapFenceProbe.kt`）
 
-高德官方现在只提供 zip / AAR 下载。
+## 如果以后要加本地 AAR
 
-## Key 怎么配
+`app/build.gradle` 里原来有一行 `implementation fileTree(dir: 'libs', include: ['*.aar', '*.jar'])`，
+加 SDK 时把它加回来即可。注意：
 
-Key 绑定「包名 + 签名 SHA1」，debug APK 用的是：
-
-- 包名：`com.ruyue.alarm`
-- debug keystore：`D:\Android_Data\.android\debug.keystore`
-- SHA1：`96:14:FF:CE:85:2E:C7:3F:E2:CB:63:6C:C7:E3:26:E3:C9:F0:F8:D7`
-
-Key 写进仓库外的 `local.properties`（已被 .gitignore 排除）：
-
-```
-AMAP_KEY=你的key
-```
-
-⚠️ 高德控制台里「发布版安全码」和「调试版安全码」是**两个字段**，装的是 debug APK
-就必须填**调试版**那个 —— 之前 key 一直不成功，最可能就是这个填错了。
+- 高德 SDK **不在 Maven 上**（jcenter 已关停），只能从官网下 AAR 手动放进来
+- 用之前先 `javap -classpath classes.jar <类名>` 读出真实签名，**别凭记忆写**
+  —— v0.9.0 那次凭记忆写，包名/参数三条全错

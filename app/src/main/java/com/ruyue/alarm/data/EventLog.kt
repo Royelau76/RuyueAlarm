@@ -28,14 +28,6 @@ object EventType {
     const val ALARM_FIRED = "ALARM_FIRED"
     const val RING_OPENED = "RING_OPENED"
     const val BOOT = "BOOT"
-
-    /**
-     * 高德围栏的进出事件（M0 第 4 项实验）。
-     *
-     * 单独一个类型而不是混进 NOTE，是为了**能和自研围栏的「接近/离开」直接对着比时间差** ——
-     * 这正是这次实验唯一要回答的问题（延迟差多少）。
-     */
-    const val AMAP_FENCE = "AMAP_FENCE"
     const val NOTE = "NOTE"
     const val ERROR = "ERROR"
 }
