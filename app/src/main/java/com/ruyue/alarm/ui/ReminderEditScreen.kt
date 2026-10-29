@@ -53,6 +53,9 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
     // 收藏地点的长按删除确认
     var pendingDeletePlace by remember { mutableStateOf<SavedPlace?>(null) }
 
+    // 「按地址找」用全屏 Dialog（不换路由：换路由会触发 startEdit 重新读库，把未保存的改动冲掉）
+    var showAddressSearch by remember { mutableStateOf(false) }
+
     // 收藏列表要显示「离你多远」：取一次**缓存**位置（cacheFirst，不会额外开 GPS）
     var myLat by remember { mutableStateOf<Double?>(null) }
     var myLon by remember { mutableStateOf<Double?>(null) }
@@ -346,6 +349,12 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                         modifier = Modifier.weight(1f),
                     ) { Text(if (locating) "定位中…" else "用当前位置") }
                     OutlinedButton(
+                        onClick = { showAddressSearch = true },
+                        modifier = Modifier.weight(1f),
+                    ) { Text("按地址找") }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(
                         onClick = { vm.saveDraftPlaceAsFavorite() },
                         enabled = hasPoint,
                     ) { Text("存为收藏") }
@@ -605,6 +614,17 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                 },
                 dismissButton = {
                     TextButton(onClick = { pendingDeletePlace = null }) { Text("取消") }
+                },
+            )
+        }
+
+        // 「按地址找」全屏弹窗
+        if (showAddressSearch) {
+            AddressSearchDialog(
+                onDismiss = { showAddressSearch = false },
+                onPick = { name, lat, lon, radius ->
+                    vm.setPlaceFromAddress(name, lat, lon, radius)
+                    showAddressSearch = false
                 },
             )
         }

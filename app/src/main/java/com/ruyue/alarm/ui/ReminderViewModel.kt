@@ -153,6 +153,24 @@ class ReminderViewModel @Inject constructor(
     }
 
     /**
+     * 「按地址找」选中的地点写进草稿。
+     *
+     * 和收藏一样是**快照**：之后就与那次在线搜索无关了，不依赖网络也能正常触发。
+     */
+    fun setPlaceFromAddress(name: String, latitude: Double, longitude: Double, radiusMeters: Int) {
+        updateDraft {
+            it.copy(
+                placeEnabled = true,
+                placeName = name,
+                latitude = latitude,
+                longitude = longitude,
+                radiusMeters = radiusMeters,
+            )
+        }
+        _message.value = "已填入「$name」，记得点保存"
+    }
+
+    /**
      * 记录当前位置作为目标地点。
      * 刻意不做地图选点：自用场景「站在要提醒的地方按一下」最省事，也省掉一整个地图 SDK 和 key。
      */

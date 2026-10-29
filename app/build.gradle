@@ -17,6 +17,8 @@ if (localPropsFile.exists()) {
     localPropsFile.withInputStream { localProps.load(it) }
 }
 def amapKey = localProps.getProperty('AMAP_KEY') ?: (project.findProperty('AMAP_KEY') ?: '')
+// 「Web服务」类型的 key，用于「按地址找」（地理编码 / POI 搜索 / 静态地图）
+def amapWebKey = localProps.getProperty('AMAP_WEB_KEY') ?: (project.findProperty('AMAP_WEB_KEY') ?: '')
 
 android {
     namespace 'com.ruyue.alarm'
@@ -26,9 +28,10 @@ android {
         applicationId "com.ruyue.alarm"
         minSdk 26
         targetSdk 34
-        versionCode 59
-        versionName "0.11.0-m2"
+        versionCode 60
+        versionName "0.12.0-m2"
         buildConfigField "String", "AMAP_KEY", "\"${amapKey}\""
+        buildConfigField "String", "AMAP_WEB_KEY", "\"${amapWebKey}\""
         // 高德 SDK 从 AndroidManifest 的 meta-data 读 key（构建时注入，key 不进版本库）
         manifestPlaceholders = [amapKey: amapKey]
     }

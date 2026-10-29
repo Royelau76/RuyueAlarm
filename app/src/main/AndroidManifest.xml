@@ -3,6 +3,15 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- ================= WiFi / 网络 ================= -->
+    <!--
+      ⚠️ INTERNET 是 v0.12.0 才补上的 —— 之前 App 全靠本地能力（WiFi/定位/闹钟），不需要联网。
+      代价很真实：v0.9.0 接高德定位 SDK 时没有这个权限，SDK 的所有请求都被系统拒绝，
+      返回的正是「定位错误码 4 = 请求服务器异常」，然后整夜重试 —— 那次「高德围栏零触发 +
+      耗电 9.8%」的结论因此**不成立**（是我们的错，不是高德的）。教训：**接任何联网 SDK 前
+      先确认 INTERNET 权限**，否则会得到一份"看起来像对方有问题"的假证据。
+      现在「按地址找」也要用它。
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
