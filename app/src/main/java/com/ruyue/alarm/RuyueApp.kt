@@ -17,6 +17,10 @@ class RuyueApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // ⚠️ 必须**第一件事**：升级前把用户数据备份成 JSON。
+        // 原因：Room 的迁移是在第一次访问数据库时跑掉的，等我们有代码机会时库已经被迁移过了。
+        // 这里用裸 SQLite 只读打开，绕开 Room，才拿得到"迁移前"的那份快照。
+        com.ruyue.alarm.util.Backup.maybeBackupOnUpgrade(this)
         createChannels(this)
         Db.get(this) // 预热数据库，避免第一次落日志时卡住
         rescheduleOnAppOpen()
