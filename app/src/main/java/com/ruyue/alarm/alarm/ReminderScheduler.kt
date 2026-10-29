@@ -24,9 +24,22 @@ object ReminderScheduler {
     const val EXTRA_TITLE = "title"
     const val EXTRA_NOTE = "note"
 
+    /** 「稍后提醒」的分钟数；0 = 不是稍后提醒（正常排期） */
+    const val EXTRA_SNOOZE_MINUTES = "snooze_minutes"
+
     private fun fireRequestCode(reminderId: Long): Int = (1000 + reminderId % 100000).toInt()
 
     private fun showRequestCode(reminderId: Long): Int = fireRequestCode(reminderId) + 50000
+
+    /**
+     * 「稍后提醒」用**独立的 request code**。
+     *
+     * ⚠️ 这是个真 bug 的修复（v0.10.0 之前）：稍后提醒原来复用 [fireRequestCode]，
+     * 而 `PendingIntent` 是按 (类型, requestCode, intent) 唯一化的 —— 同一个 code 的
+     * `getBroadcast` + `setAlarmClock` 会**覆盖掉原来的"下一次"闹钟**。
+     * 结果：重复提醒一旦点过「稍后」，第二天就再也不会响（而且日志里看不出异常）。
+     */
+    private fun snoozeRequestCode(reminderId: Long): Int = fireRequestCode(reminderId) + 200000
 
     /**
      * 下一次时间触发时刻；没有配时间触发、或找不到合适的日期时返回 null。
@@ -69,22 +82,37 @@ object ReminderScheduler {
         scheduleAt(context, at, reminder.id, reminder.title, reminder.note)
     }
 
+    /**
+     * 排定一次触发。
+     *
+     * @param snoozeMinutes > 0 表示这是**用户点的「稍后提醒」**：
+     *   · 用独立的 request code（否则会覆盖正式的"下一次"闹钟，见 [snoozeRequestCode]）
+     *   · intent 里带上这个值，让引擎**跳过条件闸门** —— 用户已经明确要求过 N 分钟再提醒，
+     *     此时再按「且」模式重查条件（比如还没到点/已离开 WiFi）就会静默失效
+     */
     fun scheduleAt(
         context: Context,
         triggerAtMillis: Long,
         reminderId: Long,
         title: String,
         note: String,
+        snoozeMinutes: Int = 0,
     ) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
+        val requestCode = if (snoozeMinutes > 0) {
+            snoozeRequestCode(reminderId)
+        } else {
+            fireRequestCode(reminderId)
+        }
 
         val fire = PendingIntent.getBroadcast(
             context,
-            fireRequestCode(reminderId),
+            requestCode,
             Intent(context, AlarmReceiver::class.java)
                 .putExtra(EXTRA_REMINDER_ID, reminderId)
                 .putExtra(EXTRA_TITLE, title)
-                .putExtra(EXTRA_NOTE, note),
+                .putExtra(EXTRA_NOTE, note)
+                .putExtra(EXTRA_SNOOZE_MINUTES, snoozeMinutes),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val show = PendingIntent.getActivity(

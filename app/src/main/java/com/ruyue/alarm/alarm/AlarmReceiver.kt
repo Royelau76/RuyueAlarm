@@ -35,13 +35,21 @@ class AlarmReceiver : BroadcastReceiver() {
     private fun handleReminder(context: Context, reminderId: Long, intent: Intent) {
         val fallbackTitle = intent.getStringExtra(ReminderScheduler.EXTRA_TITLE) ?: "提醒"
         val fallbackNote = intent.getStringExtra(ReminderScheduler.EXTRA_NOTE) ?: ""
+        // > 0 表示这次是用户点的「稍后提醒」，引擎要跳过条件闸门
+        val snoozeMinutes = intent.getIntExtra(ReminderScheduler.EXTRA_SNOOZE_MINUTES, 0)
 
         // 读库/定位判定要花时间，用 goAsync 把广播的存活窗口撑开
         val pending = goAsync()
         Thread {
             val result = runCatching {
                 runBlocking {
-                    TriggerEngine.onTimeAlarm(context, reminderId, fallbackTitle, fallbackNote)
+                    TriggerEngine.onTimeAlarm(
+                        context,
+                        reminderId,
+                        fallbackTitle,
+                        fallbackNote,
+                        snoozeMinutes,
+                    )
                 }
             }
             val error = result.exceptionOrNull()

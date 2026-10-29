@@ -449,12 +449,31 @@ object TriggerEngine {
         reminderId: Long,
         fallbackTitle: String,
         fallbackNote: String,
+        snoozeMinutes: Int = 0,
     ) {
         val reminders = Repos.reminders(context)
         val log = Repos.logs(context)
         val reminder = reminders.byId(reminderId)
         val title = reminder?.title?.ifBlank { fallbackTitle } ?: fallbackTitle
         val note = reminder?.note ?: fallbackNote
+
+        // ---- 用户点的「稍后提醒」：这是一条**人工指令**，不再过任何闸门 ----
+        // 为什么必须单独一条路：
+        //  · 过「且」条件闸门：稍后 10 分钟后重查一遍条件，稍有不满足就静默失效
+        //    （比如「到公司且 09:00」的提醒，稍后时不在公司 → 直接跳过）
+        //  · 过 markFired / 重新排期：第一次触发时已经做过，这里重做会重复排期
+        if (snoozeMinutes > 0) {
+            log.log(EventType.ALARM_FIRED, detail = "稍后提醒（${snoozeMinutes} 分钟后）：$title")
+            ReminderNotifier.show(
+                context,
+                reminderId,
+                title,
+                note,
+                reminder?.ringtoneUri.orEmpty(),
+                reminder?.volumeRampSeconds ?: 0,
+            )
+            return
+        }
 
         if (reminder != null && reminder.matchMode == MatchMode.ALL) {
             val unmet = unmetConditions(context, reminder)

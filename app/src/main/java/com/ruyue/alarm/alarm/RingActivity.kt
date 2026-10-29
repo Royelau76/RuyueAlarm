@@ -104,22 +104,29 @@ class RingActivity : ComponentActivity() {
                     stopEverything()
                     finish()
                 },
-                onSnooze = {
+                onSnooze = { minutes ->
                     if (reminderId > 0L) {
-                        // 正式提醒：10 分钟后再响一次
+                        // 正式提醒：N 分钟后再响一次（独立 request code，不会覆盖下一次正式闹钟）
                         ReminderScheduler.scheduleAt(
                             this,
-                            System.currentTimeMillis() + 10 * 60 * 1000L,
+                            System.currentTimeMillis() + minutes * 60_000L,
                             reminderId,
                             title,
                             note,
+                            snoozeMinutes = minutes,
                         )
+                        lifecycleScope.launch {
+                            repository.log(
+                                EventType.NOTE,
+                                detail = "稍后提醒：$minutes 分钟后（提醒：$title）",
+                            )
+                        }
                     } else {
-                        // M0 的测试闹钟：1 分钟后，方便连续验证全屏意图
+                        // M0 的测试闹钟：同样按选择顺延，方便连续验证全屏意图
                         AlarmScheduler.scheduleAlarmClock(
                             this,
-                            System.currentTimeMillis() + 60_000L,
-                            "$title（稍后提醒）",
+                            System.currentTimeMillis() + minutes * 60_000L,
+                            "$title（稍后 $minutes 分钟）",
                         )
                     }
                     // 稍后提醒会重新发通知，旧的这条也要撤掉，否则状态栏会叠两条
@@ -160,7 +167,8 @@ private fun RingScreen(
     note: String,
     locked: Boolean,
     onDismiss: () -> Unit,
-    onSnooze: () -> Unit,
+    /** 参数是「稍后多少分钟」：5 / 10 */
+    onSnooze: (Int) -> Unit,
 ) {
     Surface(
         color = Color(0xFF101418),
@@ -204,8 +212,16 @@ private fun RingScreen(
                 Text("我知道了")
             }
             Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = onSnooze, modifier = Modifier.fillMaxWidth()) {
-                Text("稍后提醒")
+            // 稍后提醒给 5 / 10 分钟两个档位：响铃时人往往在忙，多一次点击就多一分烦躁
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = { onSnooze(5) },
+                    modifier = Modifier.weight(1f),
+                ) { Text("稍后 5 分钟") }
+                OutlinedButton(
+                    onClick = { onSnooze(10) },
+                    modifier = Modifier.weight(1f),
+                ) { Text("稍后 10 分钟") }
             }
         }
     }
