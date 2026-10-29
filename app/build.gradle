@@ -28,8 +28,8 @@ android {
         applicationId "com.ruyue.alarm"
         minSdk 26
         targetSdk 34
-        versionCode 62
-        versionName "0.14.0-m2"
+        versionCode 63
+        versionName "0.15.0-m2"
         buildConfigField "String", "AMAP_WEB_KEY", "\"${amapWebKey}\""
     }
 
@@ -91,4 +91,8 @@ dependencies {
     implementation 'androidx.hilt:hilt-navigation-compose:1.1.0'
 
     debugImplementation 'androidx.compose.ui:ui-tooling'
+
+    // 只测触发的纯逻辑（TriggerRules）：不起手机、不依赖 Android 框架，
+    // `gradlew testDebugUnitTest` 本地就能跑
+    testImplementation 'junit:junit:4.13.2'
 }

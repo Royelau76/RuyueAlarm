@@ -48,7 +48,7 @@ object TriggerEngine {
         val now = System.currentTimeMillis()
         val matched = reminders.enabledWifi().filter { reminder ->
             ssid in reminder.ssidList &&
-                now - reminder.lastFiredAt >= reminder.cooldownMinutes * 60_000L
+                TriggerRules.cooldownPassed(reminder.lastFiredAt, reminder.cooldownMinutes, now)
         }
         if (matched.isEmpty()) return
 
@@ -77,21 +77,10 @@ object TriggerEngine {
 
     // ---------------- 地点 ----------------
 
-    /** 出去判定要比进来判定宽 20%：站在半径边缘时定位会抖，不设滞环会反复「进出」 */
-    private const val EXIT_HYSTERESIS = 1.2f
-
     /**
-     * 判定「到了」时给半径留 5% 容差。
-     * 实测 10-16 那次：半径 300m、复核距离 301m —— **差 1 米被拒**，白等了一轮（2.5 分钟后才响）。
-     * 5% 的宽松换来的是「擦边不再可惜」，而 300m 的围栏放到 315m 对到达判定毫无实质影响。
+     * 判定规则（容差、滞环、时间闸门、冷却）都搬到了 [TriggerRules] —— 纯函数，可单测。
+     * 这里只留"编排"：读库、取位置、落日志、排任务。
      */
-    private const val FIRE_TOLERANCE = 1.05f
-
-    /**
-     * 粗定位（网络）的误差补偿：候选区 = 半径 + max(这个值, 半径)。
-     * 宁可早一点开始计时（后面还有 GPS 精确复核兜着），也不要因为网络定位偏了而漏掉进入。
-     */
-    private const val CANDIDATE_EXTRA_METERS = 500f
 
     /** 系统推来的位置多久之内可以直接用于停留复核（不必再自己发起一次定位请求） */
     private const val FRESH_FIX_REUSE_MS = 90_000L
@@ -105,12 +94,6 @@ object TriggerEngine {
     /** 精度不够时的重试上限与间隔 —— 有上限才不会在拿不到好卫星信号的地方一直重试耗电 */
     private const val MAX_ACCURACY_RETRIES = 4
     private const val ACCURACY_RETRY_DELAY_MS = 25_000L
-
-    /** 「且」模式下时间闸门的容差：到点后这么久之内，地点/WiFi 触发仍然算数 */
-    private const val TIME_GATE_GRACE_MS = 60 * 60 * 1000L
-
-    /** 允许"早到"的容差：闹钟可能略早于整分触发，不能因此把时间条件判成不满足 */
-    private const val TIME_GATE_EARLY_MS = 5_000L
 
     /** 最近一次系统推来的位置 */
     private var lastFixLat = 0.0
@@ -170,11 +153,11 @@ object TriggerEngine {
             // 连续监听只挂网络定位，误差可能有几百米 —— 所以先用一个"候选区"决定要不要
             // 开始停留计时，真正的「到了没有」交给停留到点后的 GPS 精确复核
             // （见 scheduleDwellCheck）。宁可早开始计时，也不能因为粗定位偏了而漏掉进入。
-            val candidateLimit = reminder.radiusMeters.toFloat() +
-                maxOf(CANDIDATE_EXTRA_METERS, reminder.radiusMeters.toFloat())
-            val wasIn = wasInside[reminder.id] == true
-            val limit = if (wasIn) candidateLimit * EXIT_HYSTERESIS else candidateLimit
-            val inside = distance <= limit
+            val inside = TriggerRules.insideCandidate(
+                distanceMeters = distance,
+                radiusMeters = reminder.radiusMeters,
+                wasInside = wasInside[reminder.id] == true,
+            )
 
             // 只在「进入/离开」时写日志：定位每 60 秒来一次，全记会把日志表刷爆。
             // 另外**首次观察不发日志** —— `wasInside` 是内存状态，服务重启后为空，
@@ -326,7 +309,7 @@ object TriggerEngine {
 
         when {
             // 精度够或已在半径内 → 按结论走
-            distance <= reminder.radiusMeters * FIRE_TOLERANCE -> {
+            TriggerRules.withinRadiusTolerance(distance, reminder.radiusMeters) -> {
                 fireIfCooled(context, reminder, distance, reminders, log)
             }
 
@@ -372,7 +355,7 @@ object TriggerEngine {
         // ⚠️ 必须**重新读一次库**再判冷却：传进来的 `reminder` 可能是几秒前的快照，
         // 而 markFired 才刚把它改掉。不重读的话，"读旧值→双双通过"的竞态就还在。
         val fresh = reminders.byId(reminder.id) ?: return
-        if (System.currentTimeMillis() - fresh.lastFiredAt < fresh.cooldownMinutes * 60_000L) return
+        if (!TriggerRules.cooldownPassed(fresh.lastFiredAt, fresh.cooldownMinutes, System.currentTimeMillis())) return
         fire(
             context,
             fresh,
@@ -555,22 +538,14 @@ object TriggerEngine {
      *  · 超过容差 → 当作今天的这次错过了（免得晚上 8 点进公司还被提醒下午两点的事）
      *  · 今天不在重复日内 → 不成立（"工作日"的提醒不会因为周六到了公司就响）
      */
-    private fun timeGateUnmet(reminder: Reminder): String? {
-        val label = hhmm(reminder)
-        if (!maskMatchesToday(reminder.repeatMask)) {
-            return "时间（今天不是重复日：${Repeat.label(reminder.repeatMask)}）"
-        }
-        val now = System.currentTimeMillis()
-        val target = todayTargetMillis(reminder)
-        // 允许早几秒：闹钟可能略早于整分触发，不能让它把自己挡掉
-        if (now < target - TIME_GATE_EARLY_MS) return "时间（还没到 $label）"
-        if (now > target + TIME_GATE_GRACE_MS) {
-            return "时间（$label 已过去超过 ${TIME_GATE_GRACE_MS / 60_000} 分钟）"
-        }
-        return null
-    }
-
-    private fun hhmm(reminder: Reminder): String = "%02d:%02d".format(reminder.hour, reminder.minute)
+    private fun timeGateUnmet(reminder: Reminder): String? = TriggerRules.timeGateUnmet(
+        hour = reminder.hour,
+        minute = reminder.minute,
+        repeatMask = reminder.repeatMask,
+        now = System.currentTimeMillis(),
+        dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK),
+        targetTodayMillis = todayTargetMillis(reminder),
+    )
 
     private fun todayTargetMillis(reminder: Reminder): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, reminder.hour)
@@ -578,14 +553,6 @@ object TriggerEngine {
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis
-
-    /** 重复规则是否包含今天（`Repeat.ONCE` 不做星期限制） */
-    private fun maskMatchesToday(mask: Int): Boolean {
-        if (mask == Repeat.ONCE) return true
-        val dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) // 1 = 周日
-        val index = (dayOfWeek + 5) % 7 // 0 = 周一，与 Repeat.DAY_NAMES 的顺序一致
-        return mask and (1 shl index) != 0
-    }
 
     /**
      * 只用于「且」模式的实时判断：优先吃缓存，拿不到再短请求一次。
@@ -604,6 +571,6 @@ object TriggerEngine {
         val distance = LocationHelper.distanceMeters(
             fix.latitude, fix.longitude, reminder.latitude, reminder.longitude,
         )
-        return distance <= reminder.radiusMeters * FIRE_TOLERANCE
+        return TriggerRules.withinRadiusTolerance(distance, reminder.radiusMeters)
     }
 }
