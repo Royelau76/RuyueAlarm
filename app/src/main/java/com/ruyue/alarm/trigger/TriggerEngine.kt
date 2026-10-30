@@ -395,6 +395,13 @@ object TriggerEngine {
                     EventType.NOTE,
                     detail = "「${reminder.title}」已满足 $source，但缺少 ${unmet.joinToString("；")}，本次不触发",
                 )
+                // 对账：如果此刻正好有一笔预期（多半是时间触发排的），记成「按设计跳过」，
+                // 否则它会在 2 小时后被误判成"该响没响"（例如「刮胡子」周末才响，工作日到家被拦下）
+                Ledger.settleSkipped(
+                    context,
+                    reminder.id,
+                    reason = "已满足 $source，但缺少 ${unmet.joinToString("；")}",
+                )
                 return
             }
         }
@@ -416,6 +423,8 @@ object TriggerEngine {
             reminder.ringtoneUri,
             reminder.volumeRampSeconds,
         )
+        // 对账销账（WiFi/地点触发的那条路由这里走；时间触发在 onTimeAlarm 里销）
+        Ledger.settleFired(context, reminder.id)
     }
 
     // ---------------- 时间触发（统一入口）----------------

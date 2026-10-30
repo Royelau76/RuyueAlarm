@@ -10,6 +10,7 @@ import com.ruyue.alarm.R
 import com.ruyue.alarm.RuyueApp
 import com.ruyue.alarm.data.Db
 import com.ruyue.alarm.data.EventType
+import com.ruyue.alarm.data.EventWriter
 import com.ruyue.alarm.data.ExpectedFire
 import com.ruyue.alarm.data.ExpectedState
 import com.ruyue.alarm.data.ReminderDb
@@ -181,7 +182,35 @@ object Ledger {
         val fired = recent.count { it.state == ExpectedState.FIRED }
         val silentApp = recent.size >= 3 && fired == 0 && expired.size >= 2
 
-        // 3) 通知 + 清旧账 + 记时间
+        // 3) **留证据**：这次对账到底看到了什么。
+        //    没有这一步，对账就是"沉默工作"的 —— 出问题时（比如昨天那条 WiFi 提醒没响），
+        //    只能靠翻原始日志猜它到底跑没跑、怎么判的。只在"有事发生"时记，正常就不刷屏。
+        val skippedInWindow = recent.count {
+            it.state == ExpectedState.SKIPPED && it.settledAt > last
+        }
+        if (expired.isNotEmpty()) {
+            EventWriter.write(
+                app,
+                EventType.NOTE,
+                detail = "自检：${expired.size} 条该响没响 —— " +
+                    expired.take(3).joinToString("；") { "${clock(it.expectedAt)}「${it.title}」" },
+            )
+        }
+        if (skippedInWindow > 0) {
+            val samples = recent
+                .filter { it.state == ExpectedState.SKIPPED && it.settledAt > last }
+                .take(3)
+                .joinToString("；") {
+                    "${clock(it.expectedAt)}「${it.title}」${if (it.reason.isNotBlank()) "（${it.reason}）" else ""}"
+                }
+            EventWriter.write(
+                app,
+                EventType.NOTE,
+                detail = "自检：$skippedInWindow 条按设计跳过（不算故障）—— $samples",
+            )
+        }
+
+        // 4) 通知 + 清旧账 + 记时间
         if (expired.isNotEmpty()) {
             runCatching { postNotification(app, expired, attribution, silentApp) }
         }
