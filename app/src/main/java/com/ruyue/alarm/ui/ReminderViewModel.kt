@@ -239,12 +239,13 @@ class ReminderViewModel @Inject constructor(
             val needSentinel = saved.enabled && (saved.wifiEnabled || saved.placeEnabled)
             if (needSentinel && !SentinelService.isWanted(app)) {
                 SentinelController.start(app)
-                _message.value = "已保存，并自动开启了地点监听"
             } else {
                 // 配置变了（例如新加了地点提醒）→ 让服务重新评估要不要开始定位
                 SentinelController.refresh(app)
-                _message.value = "已保存"
             }
+            // 这里**不写** _message：保存后马上退回列表，消息根本来不及看见，
+            // 而且留在状态里会在下次进编辑页时冒出来（v0.16.2 修的"已保存 知道了"残留）。
+            // 成功反馈由页面的 Toast 负责。
             onDone()
         }
     }
@@ -257,8 +258,8 @@ class ReminderViewModel @Inject constructor(
                 TriggerEngine.forget(current.id)
                 repo.delete(current)
                 SentinelController.refresh(app)
-                _message.value = "已删除"
             }
+            // 同 save：成功反馈交给页面的 Toast，不往 _message 里塞
             onDone()
         }
     }

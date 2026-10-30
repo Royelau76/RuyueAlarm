@@ -90,6 +90,22 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
     }
 
+    // 提示消息改成**自动消失的 Snackbar**（v0.16.2）：
+    // 原来是页面顶部一张卡片 + 「知道了」按钮，问题是 —— 消息存在 ViewModel 里，
+    // 用户随手返回时没人点「知道了」，它就留在状态里，下次进编辑/新建页又冒出来
+    // （"已保存 知道了" / "已删除 知道了" 就是这么来的）。
+    // 现在：显示前先清空状态（即使页面当场被销毁也不会残留）+ 4 秒自动消失 + 离开页面再兜底清一次。
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(message) {
+        val text = message ?: return@LaunchedEffect
+        vm.consumeMessage()
+        snackbarHostState.showSnackbar(text, duration = SnackbarDuration.Short)
+    }
+    DisposableEffect(Unit) {
+        onDispose { vm.consumeMessage() }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         // ---- 固定顶部：返回 + 标题 ----
         Row(
@@ -113,15 +129,6 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-
-        message?.let {
-            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(it, Modifier.weight(1f), fontSize = 14.sp)
-                    TextButton(onClick = { vm.consumeMessage() }) { Text("知道了") }
-                }
-            }
-        }
 
         // ---------------- 基本信息 ----------------
         CollapsibleSection(
@@ -628,6 +635,15 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                 },
             )
         }
+    }
+
+        // Snackbar 浮在底栏上方（自动消失，不需要点"知道了"）
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 16.dp, vertical = 76.dp),
+        )
     }
 }
 
