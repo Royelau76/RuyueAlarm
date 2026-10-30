@@ -1,0 +1,25 @@
+# ai-memory scope marker for RuyueAlarm.
+# Pins the (workspace, project) coordinate so memory does not drift when the
+# git remote or folder name changes. Canonical project name comes from the
+# origin remote github.com/Royelau76/RuyueAlarm -> royelau76-ruyuealarm.
+workspace = "default"
+project = "royelau76-ruyuealarm"
+
+# 敏感路径不进入记忆（Capture policy v1，由原生 hook 在客户端侧过滤）。
+# local.properties 含高德 key；签名文件、环境变量文件同理。
+[capture]
+ignore_paths = [
+  "local.properties",
+  "*.env",
+  "*.jks",
+  "*.keystore",
+  "secrets/",
+  ".secrets/",
+  "app/libs/*.aar",
+]
+
+# 让新会话开场自动带上项目简报（pinned + _rules/ 页 + 最近页标题）。
+# 代价：每次会话多花少量 token。不想要就把它改成 "false" 或删掉本节。
+[briefing]
+inject_on_session_start = "true"
+max_chars = 12000
