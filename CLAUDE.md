@@ -12,12 +12,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 当前状态
 
-**版本 v0.16.3-m2（2026-11-02）**：自用可用，四种能力齐了 ——
+**版本 v0.17.0-m2（2026-11-02）**：自用可用，四种能力齐了 ——
 **时间触发 / WiFi 触发 / 自研地理围栏** 三种触发 + 统一全屏响铃 + 常驻哨兵自愈。
 
 | 能力 | 位置 |
 |---|---|
-| 提醒 CRUD + 时间触发（仅一次/每天/工作日/周末/自定义） | `ui/` · `alarm/ReminderScheduler` |
+| 提醒 CRUD + 时间触发（仅一次 / 每天 / 工作日 / 周末 / 自定义；**仅一次可日历选点选指定日期**） | `ui/` · `alarm/ReminderScheduler` · `data/Reminder.onceDate` |
 | WiFi 触发（去抖 15s + 冷却 1440min） | `trigger/TriggerEngine` |
 | 自研地理围栏（`LocationManager`，**零 key、零第三方 SDK**） | `trigger/TriggerEngine` · `util/LocationHelper` |
 | 地点收藏 / 按地址找（高德 **Web 服务 API**，无 SDK） | `data/SavedPlace` · `net/AmapWebApi` · `ui/AddressSearchDialog` |

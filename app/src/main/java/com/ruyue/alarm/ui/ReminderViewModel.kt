@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.ruyue.alarm.alarm.ReminderScheduler
 import com.ruyue.alarm.data.Reminder
 import com.ruyue.alarm.data.ReminderRepository
+import com.ruyue.alarm.data.Repeat
 import com.ruyue.alarm.data.SavedPlace
 import com.ruyue.alarm.data.SavedPlaceRepository
 import com.ruyue.alarm.data.SsidHistory
@@ -223,6 +224,15 @@ class ReminderViewModel @Inject constructor(
             }
             current.placeEnabled && current.latitude == 0.0 && current.longitude == 0.0 -> {
                 _message.value = "启用了地点触发，请先点「用当前位置」记录坐标"
+                return
+            }
+            // 「仅一次 + 指定日期」但那天已经过去 → 排不出闹钟，会变成一条永不响的提醒
+            current.timeEnabled && ReminderScheduler.nextTriggerAt(current) == null -> {
+                _message.value = if (current.repeatMask == Repeat.ONCE && current.onceDate > 0L) {
+                    "选定的日期已经过去（或就在此刻之前），请重新选一个日期"
+                } else {
+                    "这个时间排不出下一次，请检查重复规则"
+                }
                 return
             }
         }

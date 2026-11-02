@@ -22,6 +22,17 @@ data class Reminder(
     val minute: Int = 0,
     /** 见 [Repeat]；按位表示星期几（bit0=周一 … bit6=周日），0 表示仅一次 */
     val repeatMask: Int = Repeat.EVERY_DAY,
+    /**
+     * 「仅一次」时指定的**日历日期**（那天 00:00 的本地毫秒；0 = 未指定，按老行为"下一个 hh:mm"）。
+     *
+     * 语义：`repeatMask == ONCE && onceDate > 0` → 只在那一天的 [hour]:[minute] 响一次；
+     * 响完（ONCE 会自动停用）或那天过去后就再也没有下一次。
+     *
+     * 为什么复用 ONCE 而不是新增重复类型：ONCE 本来就是"不按星期重复"，
+     * 日历日期只是把它从"下一个 hh:mm"收紧成"某一个 hh:mm"，
+     * [TriggerRules.maskMatches] 等按位逻辑一行都不用改。
+     */
+    val onceDate: Long = 0L,
 
     // ---------------- WiFi 触发 ----------------
     val wifiEnabled: Boolean = false,
@@ -84,7 +95,7 @@ data class Reminder(
     fun triggerSummary(): String {
         val parts = mutableListOf<String>()
         if (timeEnabled) {
-            parts += "%02d:%02d".format(hour, minute) + " · " + Repeat.label(repeatMask)
+            parts += timeLabel()
         }
         if (wifiEnabled) {
             val names = ssidList
@@ -108,6 +119,24 @@ data class Reminder(
 
     /** 是否配了至少一种触发 */
     fun hasAnyTrigger(): Boolean = timeEnabled || wifiEnabled || placeEnabled
+
+    /**
+     * 时间触发的一行标签（列表页与编辑页共用）。
+     *
+     * 「仅一次 + 指定日期」显示成 `09:00 · 11月15日`，而不是笼统的「仅一次」——
+     * 列表里一眼就能看出它是"哪一天的"。日期用 `M月d日`（跨年时补年份）。
+     */
+    fun timeLabel(): String {
+        val hm = "%02d:%02d".format(hour, minute)
+        if (repeatMask != Repeat.ONCE || onceDate <= 0L) {
+            return hm + " · " + Repeat.label(repeatMask)
+        }
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = onceDate }
+        val thisYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        val pattern = if (cal.get(java.util.Calendar.YEAR) == thisYear) "M月d日" else "yyyy年M月d日"
+        return hm + " · " + java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
+            .format(java.util.Date(onceDate))
+    }
 }
 
 object MatchMode {

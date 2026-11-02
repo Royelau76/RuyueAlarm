@@ -184,4 +184,58 @@ class TriggerRulesTest {
         assertTrue(TriggerRules.withinRadiusTolerance(315f, 300))
         assertFalse(TriggerRules.withinRadiusTolerance(316f, 300))
     }
+
+    // ---------------- 日历选点（v0.17.0：「仅一次」指定日期）----------------
+    //
+    // 关键风险：「仅一次」原来是"下一个 hh:mm"，加了日期之后必须收紧成"只在那一天"。
+    // 一旦漏判（比如让 mask 逻辑放行），「且」模式下的指定日期提醒会被 WiFi/地点路径提前放行；
+    // 反过来若把日期判断漏在 mask 前面，就会因为 repeatMask==ONCE 而永远"今天是重复日"→ 天天响。
+
+    @Test
+    fun `指定日期但今天不是那天 - 时间条件不成立`() {
+        val unmet = TriggerRules.timeGateUnmet(
+            hour = 9, minute = 0, repeatMask = Repeat.ONCE,
+            now = today0900 + 9 * hour,
+            dayOfWeek = monday,
+            targetTodayMillis = today0900 + 9 * hour,
+            dateMatchesToday = false,
+        )
+        assertEquals("时间（今天不是指定的那一天）", unmet)
+    }
+
+    @Test
+    fun `指定日期且就是今天并且到点 - 成立`() {
+        val unmet = TriggerRules.timeGateUnmet(
+            hour = 9, minute = 0, repeatMask = Repeat.ONCE,
+            now = today0900 + 9 * hour + 1000L,
+            dayOfWeek = monday,
+            targetTodayMillis = today0900 + 9 * hour,
+            dateMatchesToday = true,
+        )
+        assertNull(unmet)
+    }
+
+    @Test
+    fun `指定日期且就是今天但还没到点 - 不成立`() {
+        val unmet = TriggerRules.timeGateUnmet(
+            hour = 9, minute = 0, repeatMask = Repeat.ONCE,
+            now = today0900 + 8 * hour,
+            dayOfWeek = monday,
+            targetTodayMillis = today0900 + 9 * hour,
+            dateMatchesToday = true,
+        )
+        assertEquals("时间（还没到 09:00）", unmet)
+    }
+
+    @Test
+    fun `老的仅一次没有指定日期 - 行为不变（不看星期）`() {
+        // dateMatchesToday 默认 true，maskMatches(ONCE) 恒 true → 到点即成立
+        val unmet = TriggerRules.timeGateUnmet(
+            hour = 9, minute = 0, repeatMask = Repeat.ONCE,
+            now = today0900 + 9 * hour + 1000L,
+            dayOfWeek = saturday,
+            targetTodayMillis = today0900 + 9 * hour,
+        )
+        assertNull(unmet)
+    }
 }

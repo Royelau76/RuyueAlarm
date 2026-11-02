@@ -65,6 +65,9 @@ object TriggerRules {
      * @param now 当前时刻
      * @param dayOfWeek 今天星期几（`Calendar.DAY_OF_WEEK`）
      * @param targetTodayMillis 今天的提醒时刻（由调用方用 Calendar 算好）
+     * @param dateMatchesToday 「仅一次 + 指定日期」时，今天是不是那一天；
+     *   不是就一律不成立（否则「且」模式下的指定日期提醒会被 WiFi/地点路径提前放行）。
+     *   普通重复提醒传 true 即可。
      * @return null = 成立；否则返回给日志看的人话原因
      */
     fun timeGateUnmet(
@@ -74,8 +77,10 @@ object TriggerRules {
         now: Long,
         dayOfWeek: Int,
         targetTodayMillis: Long,
+        dateMatchesToday: Boolean = true,
     ): String? {
         val label = hhmm(hour, minute)
+        if (!dateMatchesToday) return "时间（今天不是指定的那一天）"
         if (!maskMatches(repeatMask, dayOfWeek)) {
             return "时间（今天不是重复日：${Repeat.label(repeatMask)}）"
         }

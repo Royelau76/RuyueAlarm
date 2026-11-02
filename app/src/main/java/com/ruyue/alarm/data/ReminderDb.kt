@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [Reminder::class, SsidHistory::class, SavedPlace::class, ExpectedFire::class],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class ReminderDatabase : RoomDatabase() {
@@ -114,6 +114,19 @@ abstract class ReminderDatabase : RoomDatabase() {
                 )
             }
         }
+
+        /**
+         * v5 → v6：「仅一次」支持日历选点，加一列 `onceDate`（那天 00:00 的本地毫秒，0 = 未指定）。
+         *
+         * 沿用 v1→v2 / v2→v3 的写法：`ALTER TABLE ADD COLUMN ... NOT NULL DEFAULT`，
+         * 不重建表、不丢数据。老提醒这一列是 0，行为与以前完全一致（按"下一个 hh:mm"算）。
+         * 用 `tools/verify_migration_v5_v6.py` 离线验过。
+         */
+        val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE reminders ADD COLUMN onceDate INTEGER NOT NULL DEFAULT 0")
+            }
+        }
     }
 }
 
@@ -133,6 +146,7 @@ object ReminderDb {
                     ReminderDatabase.MIGRATION_2_3,
                     ReminderDatabase.MIGRATION_3_4,
                     ReminderDatabase.MIGRATION_4_5,
+                    ReminderDatabase.MIGRATION_5_6,
                 )
                 .build()
                 .also { instance = it }

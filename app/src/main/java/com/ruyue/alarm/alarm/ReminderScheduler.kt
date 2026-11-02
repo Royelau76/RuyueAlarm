@@ -57,6 +57,19 @@ object ReminderScheduler {
         }
 
         if (reminder.repeatMask == Repeat.ONCE) {
+            // 「仅一次 + 指定日期」：就排在那一天的 hh:mm。
+            // 那天已经过去 → 没有下一次（返回 null，不排任何闹钟，也不记账）。
+            // 留 60 秒宽容：保存时刚好走到整分，不应该因为"刚好过期一点点"就不排。
+            if (reminder.onceDate > 0L) {
+                val target = Calendar.getInstance().apply {
+                    timeInMillis = reminder.onceDate
+                    set(Calendar.HOUR_OF_DAY, reminder.hour)
+                    set(Calendar.MINUTE, reminder.minute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                return if (target > now - 60_000L) target else null
+            }
             // 仅一次：今天的点已经过了就顺延到明天（跟系统闹钟的直觉一致）
             if (cal.timeInMillis <= now) cal.add(Calendar.DAY_OF_YEAR, 1)
             return cal.timeInMillis

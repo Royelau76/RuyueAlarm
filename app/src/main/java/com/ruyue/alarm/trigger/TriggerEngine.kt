@@ -562,7 +562,22 @@ object TriggerEngine {
         now = System.currentTimeMillis(),
         dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK),
         targetTodayMillis = todayTargetMillis(reminder),
+        dateMatchesToday = dateMatchesToday(reminder),
     )
+
+    /**
+     * 「仅一次 + 指定日期」时，今天是不是那一天。
+     *
+     * 没有指定日期（老的「仅一次」）或不是仅一次 → 恒为 true，交给 mask 逻辑判断。
+     * 按 YEAR + DAY_OF_YEAR 比，避免夏令时/时区换算问题（国内无夏令时，这样最直观）。
+     */
+    private fun dateMatchesToday(reminder: Reminder): Boolean {
+        if (reminder.repeatMask != Repeat.ONCE || reminder.onceDate <= 0L) return true
+        val target = Calendar.getInstance().apply { timeInMillis = reminder.onceDate }
+        val today = Calendar.getInstance()
+        return target.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+            target.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+    }
 
     private fun todayTargetMillis(reminder: Reminder): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, reminder.hour)

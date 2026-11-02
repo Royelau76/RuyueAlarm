@@ -33,7 +33,7 @@ import com.ruyue.alarm.data.SavedPlace
 import com.ruyue.alarm.util.LocationHelper
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
     LaunchedEffect(id) { vm.startEdit(id) }
 
@@ -55,6 +55,9 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
 
     // 「按地址找」用全屏 Dialog（不换路由：换路由会触发 startEdit 重新读库，把未保存的改动冲掉）
     var showAddressSearch by remember { mutableStateOf(false) }
+
+    // 日历选点：只对「仅一次」有意义（指定那一天，而不是"下一个 hh:mm"）
+    var showDatePicker by remember { mutableStateOf(false) }
 
     // 收藏列表要显示「离你多远」：取一次**缓存**位置（cacheFirst，不会额外开 GPS）
     var myLat by remember { mutableStateOf<Double?>(null) }
@@ -156,7 +159,7 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         CollapsibleSection(
             title = "① 到点提醒（时间）",
             summary = if (draft.timeEnabled) {
-                "%02d:%02d".format(draft.hour, draft.minute) + " · " + Repeat.label(draft.repeatMask)
+                draft.timeLabel()
             } else {
                 "未启用"
             },
@@ -215,6 +218,37 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                     }
                 }
                 Hint("点「一~日」可以自定义星期；全不选等于「仅一次」。")
+
+                // 日历选点：只在「仅一次」时出现 —— 选了日期就是"只在那一天响"
+                if (draft.repeatMask == Repeat.ONCE) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("指定日期", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                            Text(
+                                text = if (draft.onceDate > 0L) {
+                                    java.text.SimpleDateFormat(
+                                        "yyyy年M月d日",
+                                        java.util.Locale.getDefault(),
+                                    ).format(java.util.Date(draft.onceDate)) +
+                                        " " + "%02d:%02d".format(draft.hour, draft.minute)
+                                } else {
+                                    "未指定 → 按「下一个 %02d:%02d」算（今天或明天）".format(draft.hour, draft.minute)
+                                },
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        TextButton(onClick = { showDatePicker = true }) {
+                            Text(if (draft.onceDate > 0L) "改日期" else "选日期")
+                        }
+                        if (draft.onceDate > 0L) {
+                            TextButton(onClick = { vm.updateDraft { it.copy(onceDate = 0L) } }) {
+                                Text("清除")
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -625,6 +659,31 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
             )
         }
 
+        // 日历选点
+        if (showDatePicker) {
+            val pickerState = rememberDatePickerState(
+                initialSelectedDateMillis = draft.onceDate
+                    .takeIf { it > 0L }
+                    ?.let { toUtcMidnight(it) },
+            )
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        pickerState.selectedDateMillis?.let { utc ->
+                            vm.updateDraft { it.copy(onceDate = toLocalMidnight(utc)) }
+                        }
+                        showDatePicker = false
+                    }) { Text("确定") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) { Text("取消") }
+                },
+            ) {
+                DatePicker(state = pickerState)
+            }
+        }
+
         // 「按地址找」全屏弹窗
         if (showAddressSearch) {
             AddressSearchDialog(
@@ -646,6 +705,29 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         )
     }
 }
+
+/**
+ * Material3 的 `DatePicker` 用「所选日期的 **UTC 零点**」表示日期，而库里存的是**本地零点**。
+ *
+ * 不换算就会偏一天（东八区会偏到前一天 20:00）—— 这是 DatePicker 最常见的坑。
+ * 用 `java.time` 而不是 `Calendar`：minSdk 26 直接可用，且不受时区偏移的四舍五入影响。
+ */
+private fun toLocalMidnight(utcMillis: Long): Long =
+    java.time.Instant.ofEpochMilli(utcMillis)
+        .atZone(java.time.ZoneOffset.UTC)
+        .toLocalDate()
+        .atStartOfDay(java.time.ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
+
+/** 反向：本地零点 → DatePicker 期望的 UTC 零点（否则打开选择器时选中的日期会差一天） */
+private fun toUtcMidnight(localMillis: Long): Long =
+    java.time.Instant.ofEpochMilli(localMillis)
+        .atZone(java.time.ZoneId.systemDefault())
+        .toLocalDate()
+        .atStartOfDay(java.time.ZoneOffset.UTC)
+        .toInstant()
+        .toEpochMilli()
 
 /**
  * 收藏地点的小胶囊：点一下填入，长按删除。
