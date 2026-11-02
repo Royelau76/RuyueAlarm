@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 当前状态
 
-**版本 v0.16.2-m2（2026-10-30）**：自用可用，四种能力齐了 ——
+**版本 v0.16.3-m2（2026-11-02）**：自用可用，四种能力齐了 ——
 **时间触发 / WiFi 触发 / 自研地理围栏** 三种触发 + 统一全屏响铃 + 常驻哨兵自愈。
 
 | 能力 | 位置 |

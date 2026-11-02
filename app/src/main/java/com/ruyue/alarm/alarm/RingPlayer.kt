@@ -19,6 +19,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -54,6 +57,18 @@ object RingPlayer {
     private var autoStopJob: Job? = null
     private var appContext: Context? = null
 
+    /**
+     * 5 分钟超时自动停止后置为 true（**只有超时这一条路会置位**）。
+     *
+     * 为什么需要这个信号：`stop()` 只停了声音/震动/唤醒锁和通知，**页面不会自己关** ——
+     * 而响铃页带着 `FLAG_KEEP_SCREEN_ON`，于是屏幕会一直亮着。
+     * 实测 10-31 22:30 的「刮胡子」没人处理，日志只写着"响铃 5 分钟无人处理，已自动停止"，
+     * 但屏幕亮了整夜（3 天耗电 2.65% 里最大的一笔）。
+     * 响铃页据此把自己关掉 → 屏幕跟着熄灭，而"响铃期间亮屏"这个体验不变。
+     */
+    private val _autoStopped = MutableStateFlow(false)
+    val autoStopped: StateFlow<Boolean> = _autoStopped.asStateFlow()
+
     /** 现在是否正在响（响铃页据此判断要不要补一次播放，避免双份声音） */
     @Synchronized
     fun isPlaying(): Boolean = player != null || ringtone != null
@@ -68,6 +83,7 @@ object RingPlayer {
     @Synchronized
     fun start(context: Context, reminderId: Long, uriString: String, rampSeconds: Int) {
         stop()
+        _autoStopped.value = false
 
         val app = context.applicationContext
         appContext = app
@@ -107,7 +123,13 @@ object RingPlayer {
             delay(MAX_RING_MS)
             stop()
             runCatching { ReminderNotifier.cancel(app, reminderId) }
-            EventWriter.write(app, EventType.NOTE, detail = "响铃 ${MAX_RING_MS / 60_000} 分钟无人处理，已自动停止")
+            // 置位后响铃页会自己 finish() —— 否则 KEEP_SCREEN_ON 会让屏幕一直亮着
+            _autoStopped.value = true
+            EventWriter.write(
+                app,
+                EventType.NOTE,
+                detail = "响铃 ${MAX_RING_MS / 60_000} 分钟无人处理，已自动停止并关闭响铃页（屏幕随后熄灭）",
+            )
         }
     }
 

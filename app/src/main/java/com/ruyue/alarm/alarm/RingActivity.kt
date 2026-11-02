@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -93,6 +94,17 @@ class RingActivity : ComponentActivity() {
         }
 
         setContent {
+            // v0.16.3：5 分钟无人处理时 RingPlayer 会停声音、撤通知，但**不会关页面**；
+            // 而本页带 FLAG_KEEP_SCREEN_ON → 屏幕会一直亮着（实测 10-31 22:30 亮了整夜）。
+            // 监听"已自动停止"，把页面一起关掉；"响铃期间亮屏"的体验保持不变。
+            LaunchedEffect(Unit) {
+                RingPlayer.autoStopped.collect { stopped ->
+                    if (stopped) {
+                        ReminderNotifier.cancel(this@RingActivity, reminderId)
+                        finish()
+                    }
+                }
+            }
             RingScreen(
                 label = title,
                 note = note,
