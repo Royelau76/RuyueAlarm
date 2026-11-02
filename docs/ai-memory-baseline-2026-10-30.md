@@ -104,7 +104,7 @@ com.ruyue.alarm
 ## 9. 怎么验证"某个 agent 到底知道如约多少"
 
 ```powershell
-cd "D:\My Projects\RuyueAlarm"
+cd "D:\My Projects\apps\RuyueAlarm"
 ai-memory doctor          # 捕获覆盖：本地会话 vs 已捕获
 ai-memory list-projects   # 记忆库里有没有这个 project
 ```
