@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 用平台主题，避免为一个 M0 验证工程再引入 Material Components 依赖 -->
-    <style name="Theme.RuyueAlarm" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+      平台主题（2026-11-03 起全 App 只做暗色 —— 「条件就绪」设计语言靠夜底发光成立）。
+      · parent 改成深色：状态栏/导航栏图标自动是浅色
+      · windowBackground 给夜底中间色：避免冷启动首帧闪白
+        （设计背景是 #1B2540 → #18213A(42%) → #212C4C 的渐变，取中间那档）
+    -->
+    <style name="Theme.RuyueAlarm" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#18213A</item>
+    </style>
 </resources>

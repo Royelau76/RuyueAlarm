@@ -1,12 +1,11 @@
 package com.ruyue.alarm.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -21,95 +20,44 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 
 // ============================================================================
-// 品牌色
+// 「条件就绪」设计语言（2026-10-31 设计交付，见 docs/ui/UI-迁移计划.md）
 //
-// 主色沿用响铃页那套"淡蓝"：深色下直接用 #8AB4F8（和响铃页同一支），
-// 浅色下压深成 #2F62B5 —— 同一个色相，但在白底上要有足够对比度。
-// 深色模式的背景故意对齐响铃页的 #101418，让"响铃页"和"App 其他页面"看起来是一套东西。
+// 三条必须守住的东西：
+//   ① 颜色 = 触发源。薄荷=时间、薰衣草=WiFi、蜜桃=地点。**贯穿所有页面，不是装饰。**
+//   ② 全暗色。设计的整句话汇靠"夜底 + 发光路径"成立，亮色下不成立 —— 所以本 App
+//      **不再跟随系统深浅色**，永远暗色（用户 2026-11-03 决定）。
+//   ③ 字号按 Android 体系，不照抄原型的 px：原型正文 11.5px(412 画布) → 真机 14~16sp。
 // ============================================================================
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF2F62B5),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD9E3FF),
-    onPrimaryContainer = Color(0xFF001B3D),
-    secondary = Color(0xFF55606F),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFD9E3F5),
-    onSecondaryContainer = Color(0xFF121C28),
-    tertiary = Color(0xFF1E7A63),
-    onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFA8F2DA),
-    onTertiaryContainer = Color(0xFF00201A),
-    background = Color(0xFFF8FAFD),
-    onBackground = Color(0xFF191C20),
-    surface = Color(0xFFF8FAFD),
-    onSurface = Color(0xFF191C20),
-    surfaceVariant = Color(0xFFE0E3EA),
-    onSurfaceVariant = Color(0xFF44474E),
-    surfaceDim = Color(0xFFD8DAE0),
-    surfaceBright = Color(0xFFF8FAFD),
-    surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF2F4F9),
-    surfaceContainer = Color(0xFFEDEFF5),
-    surfaceContainerHigh = Color(0xFFE7EAF1),
-    surfaceContainerHighest = Color(0xFFE1E4EB),
-    outline = Color(0xFF74777F),
-    outlineVariant = Color(0xFFC4C7CF),
-    error = Color(0xFFB3261E),
-    onError = Color(0xFFFFFFFF),
-    errorContainer = Color(0xFFF9DEDC),
-    onErrorContainer = Color(0xFF410E0B),
-    inverseSurface = Color(0xFF2E3135),
-    inverseOnSurface = Color(0xFFF1F0F4),
-    inversePrimary = Color(0xFF8AB4F8),
+@Immutable
+data class RuyueColors(
+    /** 背景渐变的三段（linear-gradient(168deg) 的近似） */
+    val bgTop: Color = Color(0xFF1B2540),
+    val bgMid: Color = Color(0xFF18213A),
+    val bgBottom: Color = Color(0xFF212C4C),
+    /** 比底色亮两档的分层，不用描边 */
+    val card: Color = Color(0xFF26335A),
+    val cardHigh: Color = Color(0xFF2E3C68),
+    val sheet: Color = Color(0xFF212C4A),
+    /** 路径未达成段 */
+    val track: Color = Color(0xFF3A4874),
+    /** 三级文字 */
+    val text: Color = Color(0xFFEDF0FF),
+    val textSecondary: Color = Color(0xFFB9C2E0),
+    val textTertiary: Color = Color(0xFFA6B1D6),
+    /** 三种触发源 —— 这就是信息本身 */
+    val time: Color = Color(0xFF9BE0CC),
+    val wifi: Color = Color(0xFFBAC3FA),
+    val place: Color = Color(0xFFF4D0A8),
+    /** 亮色底上的深字 */
+    val onAccent: Color = Color(0xFF17273F),
+    /** 危险 / 提醒（删除、错误） */
+    val danger: Color = Color(0xFFFFB4AB),
 )
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8AB4F8),
-    onPrimary = Color(0xFF002F63),
-    primaryContainer = Color(0xFF204070),
-    onPrimaryContainer = Color(0xFFD9E3FF),
-    secondary = Color(0xFFBCC7DC),
-    onSecondary = Color(0xFF263141),
-    secondaryContainer = Color(0xFF3C4858),
-    onSecondaryContainer = Color(0xFFD9E3F5),
-    tertiary = Color(0xFF8CD6BE),
-    onTertiary = Color(0xFF00382A),
-    tertiaryContainer = Color(0xFF00513E),
-    onTertiaryContainer = Color(0xFFA8F2DA),
-    // 背景对齐响铃页，形成统一的深色基底
-    background = Color(0xFF101418),
-    onBackground = Color(0xFFE2E2E6),
-    surface = Color(0xFF11161B),
-    onSurface = Color(0xFFE2E2E6),
-    surfaceVariant = Color(0xFF42474E),
-    onSurfaceVariant = Color(0xFFC2C7CF),
-    surfaceDim = Color(0xFF0B0E11),
-    surfaceBright = Color(0xFF262C33),
-    surfaceContainerLowest = Color(0xFF0B0E11),
-    surfaceContainerLow = Color(0xFF161B21),
-    surfaceContainer = Color(0xFF1A2026),
-    surfaceContainerHigh = Color(0xFF232A31),
-    surfaceContainerHighest = Color(0xFF2C333B),
-    outline = Color(0xFF8C9199),
-    outlineVariant = Color(0xFF42474E),
-    error = Color(0xFFF2B8B5),
-    onError = Color(0xFF601410),
-    errorContainer = Color(0xFF8C1D18),
-    onErrorContainer = Color(0xFFF9DEDC),
-    inverseSurface = Color(0xFFE2E2E6),
-    inverseOnSurface = Color(0xFF2E3135),
-    inversePrimary = Color(0xFF2F62B5),
-)
+val LocalRuyueColors = staticCompositionLocalOf { RuyueColors() }
 
-// ============================================================================
-// 语义色
-//
-// 之前的红绿是硬编码在 UI 里的（#2E7D32 / #C62828）：在深色背景上对比度极低，
-// 几乎看不清"好/坏"。语义色按明暗两套给，组件只取语义、不关心具体色值。
-// ============================================================================
-
+/** 语义色（老页面还在用：Common.kt 的 Hint / LogsScreen） */
 @Immutable
 data class RuyueSemanticColors(
     val success: Color,
@@ -119,83 +67,114 @@ data class RuyueSemanticColors(
     val neutral: Color,
 )
 
-private val LightSemantic = RuyueSemanticColors(
-    success = Color(0xFF1B6B32),
-    warning = Color(0xFF8C5A00),
-    danger = Color(0xFFB3261E),
-    info = Color(0xFF1A5CAD),
-    neutral = Color(0xFF5F6368),
-)
-
-private val DarkSemantic = RuyueSemanticColors(
+private val RuyueSemantic = RuyueSemanticColors(
     success = Color(0xFF7FD89B),
     warning = Color(0xFFFFCF7A),
     danger = Color(0xFFFFB4AB),
-    info = Color(0xFF9CC6FF),
-    neutral = Color(0xFFAEB3BA),
+    info = Color(0xFFBAC3FA),
+    neutral = Color(0xFFA6B1D6),
 )
 
-val LocalRuyueSemanticColors = staticCompositionLocalOf { LightSemantic }
+val LocalRuyueSemanticColors = staticCompositionLocalOf { RuyueSemantic }
 
-// ============================================================================
-// 排版与形状
-//
-// 原来的字号是各页面自己写死 12~24sp，没有层级。这里定义一套：
-//   titleLarge  → 页面大标题
-//   titleMedium → 卡片/分区标题
-//   bodyMedium  → 正文
-//   bodySmall   → 辅助说明（Hint）
-// ============================================================================
+/** Material3 色板映射：只为了 Button/Switch/TextField 这些默认组件能自动拿到对的颜色 */
+private val DarkColors = darkColorScheme(
+    primary = RuyueColors().time,
+    onPrimary = RuyueColors().onAccent,
+    primaryContainer = RuyueColors().cardHigh,
+    onPrimaryContainer = RuyueColors().time,
+    secondary = RuyueColors().wifi,
+    onSecondary = RuyueColors().onAccent,
+    secondaryContainer = RuyueColors().cardHigh,
+    onSecondaryContainer = RuyueColors().wifi,
+    tertiary = RuyueColors().place,
+    onTertiary = RuyueColors().onAccent,
+    tertiaryContainer = RuyueColors().cardHigh,
+    onTertiaryContainer = RuyueColors().place,
+    background = RuyueColors().bgMid,
+    onBackground = RuyueColors().text,
+    surface = RuyueColors().card,
+    onSurface = RuyueColors().text,
+    surfaceVariant = RuyueColors().cardHigh,
+    onSurfaceVariant = RuyueColors().textSecondary,
+    surfaceDim = RuyueColors().bgMid,
+    surfaceBright = RuyueColors().cardHigh,
+    surfaceContainerLowest = RuyueColors().bgMid,
+    surfaceContainerLow = RuyueColors().bgMid,
+    surfaceContainer = RuyueColors().card,
+    surfaceContainerHigh = RuyueColors().cardHigh,
+    surfaceContainerHighest = RuyueColors().cardHigh,
+    outline = RuyueColors().track,
+    outlineVariant = RuyueColors().track,
+    error = RuyueColors().danger,
+    onError = RuyueColors().onAccent,
+    errorContainer = Color(0xFF5B2B2B),
+    onErrorContainer = RuyueColors().danger,
+    inverseSurface = RuyueColors().time,
+    inverseOnSurface = RuyueColors().onAccent,
+    inversePrimary = RuyueColors().onAccent,
+    scrim = Color(0xCC0B1120),
+)
 
+/**
+ * 排版：字号按 Android 体系重设（原型 px 已 +2~3sp 换算）。
+ *
+ * | 用途 | 设计稿 | 这里 |
+ * |---|---|---|
+ * | 页面大标题 | 22~26 | titleLarge 24sp |
+ * | 卡内标题 | 14~15 | titleMedium 16sp |
+ * | 正文 | 12~13 (原型) → 真机 14~16 | bodyLarge 16 / bodyMedium 15 |
+ * | 辅助说明 | 11~11.5 → 12~13 | bodySmall 13 / labelSmall 12 |
+ */
 private val RuyueTypography = Typography(
-    titleLarge = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold),
+    displayLarge = TextStyle(fontSize = 74.sp, lineHeight = 78.sp, fontWeight = FontWeight.Bold),
+    headlineLarge = TextStyle(fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold),
+    headlineMedium = TextStyle(fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.SemiBold),
+    titleLarge = TextStyle(fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold),
     titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
-    titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
-    bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
-    bodySmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
-    labelLarge = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+    titleSmall = TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
+    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
+    bodyMedium = TextStyle(fontSize = 15.sp, lineHeight = 22.sp),
+    bodySmall = TextStyle(fontSize = 13.sp, lineHeight = 19.sp),
+    labelLarge = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
     labelMedium = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium),
     labelSmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
 )
 
+/** 卡片圆角 20~24，按钮 18（设计稿给定） */
 private val RuyueShapes = Shapes(
-    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
-    small = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-    medium = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-    large = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(26.dp),
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(26.dp),
 )
 
 /**
- * 全 App 主题：**跟随系统深浅色**。
+ * 全 App 主题：**永远暗色**（不再跟随系统）。
  *
- * 除了 Compose 配色，这里还要处理系统栏图标 —— 原来 `themes.xml` 写死了
- * `Theme.Material.Light`，系统切到深色后状态栏仍是"深色图标"，压在深色界面上等于看不见。
- * 现在：`values/themes.xml` + `values-night/themes.xml` 分两套（保证首帧背景与图标正确），
- * 这里再用 WindowInsetsController 显式设一次，防止运行中切换深浅色时图标不刷新。
+ * 系统栏图标仍要显式设一次：`values/themes.xml` 已改成深色平台主题（保证首帧背景正确），
+ * 这里再用 WindowInsetsController 兜一遍，防止某些机型首帧仍是深色图标压深色界面。
  */
 @Composable
-fun RuyueTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit,
-) {
+fun RuyueTheme(content: @Composable () -> Unit) {
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !darkTheme
-                isAppearanceLightNavigationBars = !darkTheme
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
             }
         }
     }
 
     CompositionLocalProvider(
-        LocalRuyueSemanticColors provides if (darkTheme) DarkSemantic else LightSemantic,
+        LocalRuyueColors provides RuyueColors(),
+        LocalRuyueSemanticColors provides RuyueSemantic,
     ) {
         MaterialTheme(
-            colorScheme = if (darkTheme) DarkColors else LightColors,
+            colorScheme = DarkColors,
             typography = RuyueTypography,
             shapes = RuyueShapes,
             content = content,
