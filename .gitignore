@@ -22,3 +22,8 @@ key.properties
 *.jks
 *.p12
 !debug.keystore
+
+# ---- UI 设计交付原始包（20MB zip + 8.7MB 动画，不入库）----
+# 必要的那部分已经整理进 docs/ui/ 与 res/drawable-nodpi/（见 tools/import_ui_design.py）。
+# 需要看可交互原型 prototype.html 时，解压这里的 zip 用 Chrome 打开。
+如约UI设计/
