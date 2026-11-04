@@ -283,6 +283,8 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
             accent = ruyue.wifi,
             switchOn = draft.wifiEnabled,
             onSwitch = { v -> vm.updateDraft { it.copy(wifiEnabled = v) } },
+            asSheet = true,
+            openLabel = "选网络 / 确认时长",
         ) {
 
             if (draft.wifiEnabled) {
@@ -366,6 +368,8 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
             accent = ruyue.place,
             switchOn = draft.placeEnabled,
             onSwitch = { v -> vm.updateDraft { it.copy(placeEnabled = v) } },
+            asSheet = true,
+            openLabel = "改范围 / 停留时长",
         ) {
 
             if (draft.placeEnabled) {

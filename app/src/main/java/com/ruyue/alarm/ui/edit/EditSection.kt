@@ -4,6 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -54,6 +58,7 @@ fun EditSectionLabel(text: String) {
  * @param switchOn 非 null 时右上角是开关：**关掉就隐藏内容**（渐进披露）
  * @param bigSummary 大号显示副标题（时间卡用）
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditCard(
     title: String,
@@ -63,10 +68,14 @@ fun EditCard(
     onSwitch: ((Boolean) -> Unit)? = null,
     bigSummary: Boolean = false,
     initiallyExpanded: Boolean = true,
+    /** true = 参数内容放进**底部上滑弹层**（设计稿 sheet-wifi / sheet-place 的做法） */
+    asSheet: Boolean = false,
+    openLabel: String = "设置…",
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = LocalRuyueColors.current
     var expanded by remember(title) { mutableStateOf(initiallyExpanded) }
+    var sheetOpen by remember(title) { mutableStateOf(false) }
     val active = switchOn ?: true
     // 有开关时：开=展开、关=收起；没开关时：靠点击标题切换
     val bodyVisible = if (switchOn != null) active else expanded
@@ -134,8 +143,76 @@ fun EditCard(
         }
 
         if (bodyVisible) {
-            Spacer(Modifier.height(10.dp))
-            content()
+            if (asSheet) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "$openLabel  ›",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = (accent ?: c.time),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background((accent ?: c.time).copy(alpha = 0.12f))
+                        .clickable { sheetOpen = true }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+            } else {
+                Spacer(Modifier.height(10.dp))
+                content()
+            }
+        }
+
+        // 底部上滑弹层：控件代码原样复用（不搬动 = 不引入新 bug）
+        if (asSheet && sheetOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { sheetOpen = false },
+                containerColor = c.sheet,
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp)
+                        .padding(bottom = 20.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(title, style = MaterialTheme.typography.titleLarge, color = c.text)
+                            if (summary.isNotBlank()) {
+                                Text(
+                                    text = summary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = c.textSecondary,
+                                )
+                            }
+                        }
+                        Text(
+                            text = "关闭",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = c.textSecondary,
+                            modifier = Modifier
+                                .clickable { sheetOpen = false }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Column(Modifier.verticalScroll(rememberScrollState())) { content() }
+                    Spacer(Modifier.height(14.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(accent ?: c.time)
+                            .clickable { sheetOpen = false },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "用这个设置",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = c.onAccent,
+                        )
+                    }
+                }
+            }
         }
     }
 }
