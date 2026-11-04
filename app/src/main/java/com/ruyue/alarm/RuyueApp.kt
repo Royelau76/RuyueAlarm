@@ -17,6 +17,7 @@ class RuyueApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        installCrashLogger()
         // ⚠️ 必须**第一件事**：升级前把用户数据备份成 JSON。
         // 原因：Room 的迁移是在第一次访问数据库时跑掉的，等我们有代码机会时库已经被迁移过了。
         // 这里用裸 SQLite 只读打开，绕开 Room，才拿得到"迁移前"的那份快照。
@@ -24,6 +25,41 @@ class RuyueApp : Application() {
         createChannels(this)
         Db.get(this) // 预热数据库，避免第一次落日志时卡住
         rescheduleOnAppOpen()
+    }
+
+    /**
+     * 崩溃兜底记录。
+     *
+     * 为什么必须有：2026-11-04 v0.19.0 出现「新建提醒点保存闪退，之后每次启动都闪退」——
+     * App 打不开就没法导出日志，手机也没连 adb，等于**零证据**，只能靠猜。
+     * 现在把未捕获异常的栈写进 `filesDir/last-crash.txt`，并落一条 ERROR 事件
+     * （后者能在"恢复之后导出日志"时看到，不用连电脑）。
+     */
+    private fun installCrashLogger() {
+        val default = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            runCatching {
+                val text = buildString {
+                    appendLine("时间：${java.util.Date()}")
+                    appendLine("版本：${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                    appendLine("线程：${thread.name}")
+                    appendLine(error.stackTraceToString())
+                }
+                java.io.File(filesDir, "last-crash.txt").writeText(text)
+                runBlocking {
+                    runCatching {
+                        Db.get(this@RuyueApp).eventLogDao().insert(
+                            com.ruyue.alarm.data.EventLog(
+                                type = com.ruyue.alarm.data.EventType.ERROR,
+                                detail = "崩溃：${error.javaClass.simpleName}: ${error.message}" +
+                                    "（详见 last-crash.txt）",
+                            )
+                        )
+                    }
+                }
+            }
+            default?.uncaughtException(thread, error)
+        }
     }
 
     /**
