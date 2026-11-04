@@ -132,16 +132,7 @@ fun ReminderListScreen(
                                 style = MaterialTheme.typography.titleSmall,
                                 color = c.textSecondary,
                             )
-                            Spacer(Modifier.weight(1f))
-                            Text(
-                                text = "新约定 ＋",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = c.time,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .clickable { onEdit(0L) }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                            )
+                            // 这里原来有个「新约定 ＋」入口，和底栏主按钮重复，已删（用户 2026-11-04 反馈）
                         }
                     }
                     items(others, key = { it.id }) { reminder ->
