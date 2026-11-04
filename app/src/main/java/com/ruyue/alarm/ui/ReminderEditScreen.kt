@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +35,10 @@ import com.ruyue.alarm.data.MatchMode
 import com.ruyue.alarm.data.Repeat
 import com.ruyue.alarm.data.SavedPlace
 import com.ruyue.alarm.util.LocationHelper
+import com.ruyue.alarm.ui.edit.EditCard
+import com.ruyue.alarm.ui.edit.EditSectionLabel
+import com.ruyue.alarm.ui.edit.HeroInputCard
+import com.ruyue.alarm.ui.theme.LocalRuyueColors
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
@@ -38,6 +46,7 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
     LaunchedEffect(id) { vm.startEdit(id) }
 
     val context = LocalContext.current
+    val ruyue = LocalRuyueColors.current
     val draft by vm.draft.collectAsStateWithLifecycle()
     val currentSsid by vm.currentSsid.collectAsStateWithLifecycle()
     val history by vm.ssidHistory.collectAsStateWithLifecycle()
@@ -114,14 +123,33 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, end = 16.dp, top = 8.dp),
+                .padding(start = 6.dp, end = 8.dp, top = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onBack) { Text("← 返回") }
-            Spacer(Modifier.width(4.dp))
+            TextButton(onClick = onBack) {
+                Text("取消", style = MaterialTheme.typography.labelLarge, color = ruyue.textSecondary)
+            }
+            Spacer(Modifier.width(2.dp))
             Text(
-                text = if (id > 0L) "编辑提醒" else "新建提醒",
+                text = if (id > 0L) "编辑约定" else "新建约定",
                 style = MaterialTheme.typography.titleLarge,
+                color = ruyue.text,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "保存",
+                style = MaterialTheme.typography.labelLarge,
+                color = ruyue.time,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(ruyue.time.copy(alpha = 0.14f))
+                    .clickable {
+                        vm.save {
+                            Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
+                            onBack()
+                        }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
             )
         }
 
@@ -133,45 +161,31 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp),
         ) {
 
-        // ---------------- 基本信息 ----------------
-        CollapsibleSection(
-            title = "基本信息",
-            summary = draft.title.ifBlank { "还没填标题" },
-            initiallyExpanded = true,
-        ) {
-            OutlinedTextField(
-                value = draft.title,
-                onValueChange = { v -> vm.updateDraft { it.copy(title = v) } },
-                label = { Text("提醒什么（必填）") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = draft.note,
-                onValueChange = { v -> vm.updateDraft { it.copy(note = v) } },
-                label = { Text("备注（可选，响铃时会显示）") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        // ---------------- 顶部输入卡（设计稿第一屏最显眼那块） ----------------
+        HeroInputCard(
+            title = draft.title,
+            note = draft.note,
+            onTitleChange = { v -> vm.updateDraft { it.copy(title = v) } },
+            onNoteChange = { v -> vm.updateDraft { it.copy(note = v) } },
+        )
+
+        // ---------------- 什么时候 · 在哪儿 · 什么网 ----------------
+        EditSectionLabel("什么时候 · 在哪儿 · 什么网")
 
         // ---------------- ① 时间 ----------------
-        CollapsibleSection(
-            title = "① 到点提醒（时间）",
+        EditCard(
+            title = "时间",
             summary = if (draft.timeEnabled) {
                 draft.timeLabel()
             } else {
                 "未启用"
             },
             initiallyExpanded = draft.timeEnabled,
+            accent = ruyue.time,
+            switchOn = draft.timeEnabled,
+            onSwitch = { v -> vm.updateDraft { it.copy(timeEnabled = v) } },
+            bigSummary = true,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("启用", Modifier.weight(1f))
-                Switch(
-                    checked = draft.timeEnabled,
-                    onCheckedChange = { v -> vm.updateDraft { it.copy(timeEnabled = v) } },
-                )
-            }
 
             if (draft.timeEnabled) {
                 Spacer(Modifier.height(8.dp))
@@ -253,8 +267,8 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- ② WiFi ----------------
-        CollapsibleSection(
-            title = "② 到地点提醒（连上指定 WiFi）",
+        EditCard(
+            title = "连上 Wi-Fi",
             summary = if (!draft.wifiEnabled) {
                 "未启用"
             } else {
@@ -266,14 +280,10 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                 }
             },
             initiallyExpanded = draft.wifiEnabled,
+            accent = ruyue.wifi,
+            switchOn = draft.wifiEnabled,
+            onSwitch = { v -> vm.updateDraft { it.copy(wifiEnabled = v) } },
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("启用", Modifier.weight(1f))
-                Switch(
-                    checked = draft.wifiEnabled,
-                    onCheckedChange = { v -> vm.updateDraft { it.copy(wifiEnabled = v) } },
-                )
-            }
 
             if (draft.wifiEnabled) {
                 Spacer(Modifier.height(8.dp))
@@ -344,8 +354,8 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- ③ 地点（自研围栏）----------------
-        CollapsibleSection(
-            title = "③ 到地点提醒（进入范围）",
+        EditCard(
+            title = "到某个地点",
             summary = if (!draft.placeEnabled) {
                 "未启用"
             } else {
@@ -353,14 +363,10 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                     " · ${draft.radiusMeters}m · 停留 ${draft.placeDwellSeconds}s"
             },
             initiallyExpanded = draft.placeEnabled,
+            accent = ruyue.place,
+            switchOn = draft.placeEnabled,
+            onSwitch = { v -> vm.updateDraft { it.copy(placeEnabled = v) } },
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("启用", Modifier.weight(1f))
-                Switch(
-                    checked = draft.placeEnabled,
-                    onCheckedChange = { v -> vm.updateDraft { it.copy(placeEnabled = v) } },
-                )
-            }
 
             if (draft.placeEnabled) {
                 Spacer(Modifier.height(8.dp))
@@ -479,8 +485,8 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- 触发逻辑（或 / 且）----------------
-        CollapsibleSection(
-            title = "触发逻辑（多个条件之间）",
+        EditCard(
+            title = "条件之间",
             summary = MatchMode.label(draft.matchMode),
         ) {
             val triggerCount = listOf(draft.timeEnabled, draft.wifiEnabled, draft.placeEnabled)
@@ -506,8 +512,8 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
         }
 
         // ---------------- 冷却（三种触发共用）----------------
-        CollapsibleSection(
-            title = "冷却（避免反复响）",
+        EditCard(
+            title = "冷却",
             summary = "${cooldownLabel(draft.cooldownMinutes)}内只响一次",
         ) {
             Text("${cooldownLabel(draft.cooldownMinutes)}内只响一次", fontWeight = FontWeight.Medium)
@@ -531,7 +537,7 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                 }.getOrNull()
             } ?: "系统默认闹钟铃声"
         }
-        CollapsibleSection(
+        EditCard(
             title = "响铃",
             summary = ringtoneLabel + " · " +
                 (if (draft.volumeRampSeconds > 0) "渐强 ${draft.volumeRampSeconds}s" else "不渐强"),
@@ -592,30 +598,22 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
             Spacer(Modifier.height(16.dp))
         }
 
-        Surface(
-            tonalElevation = 3.dp,
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        // 保存已挪到顶栏（设计稿），底栏只留删除 —— 危险操作离手指远一点
+        if (id > 0L) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                if (id > 0L) {
-                    OutlinedButton(onClick = { confirmDelete = true }) { Text("删除") }
-                }
-                Button(
-                    onClick = {
-                        vm.save {
-                            // 保存后立刻退回列表，VM 里那条「已保存」消息来不及看见 —— 用 Toast 补上反馈
-                            Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
-                            onBack()
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                ) { Text("保存") }
+                Text(
+                    text = "删除这条约定",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ruyue.danger,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(ruyue.danger.copy(alpha = 0.10f))
+                        .clickable { confirmDelete = true }
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                )
             }
         }
 
