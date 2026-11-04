@@ -39,7 +39,9 @@ import com.ruyue.alarm.ui.design.DogMascot
 import com.ruyue.alarm.ui.design.DogPose
 import com.ruyue.alarm.ui.design.PathRail
 import com.ruyue.alarm.ui.design.RuyueBackground
+import com.ruyue.alarm.ui.design.SingleConditionRail
 import com.ruyue.alarm.ui.design.StatusPill
+import com.ruyue.alarm.ui.design.kindColor
 import com.ruyue.alarm.ui.theme.LocalRuyueColors
 import com.ruyue.alarm.ui.theme.RuyueTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -354,6 +356,7 @@ private fun RingScreen(
                 DogMascot(
                     pose = if (acked) DogPose.SIT_B else DogPose.RUN_HAPPY,
                     size = 120.dp,
+                    jump = !acked,
                 )
             }
 
@@ -400,7 +403,11 @@ private fun RingScreen(
                             )
                         }
                         Spacer(Modifier.height(10.dp))
-                        PathRail(steps = steps, modifier = Modifier.fillMaxWidth())
+                        if (steps.size == 1) {
+                            SingleConditionRail(step = steps.first(), color = kindColor(steps.first().kind, c))
+                        } else {
+                            PathRail(steps = steps, modifier = Modifier.fillMaxWidth())
+                        }
                         if (timeline.size >= 2) {
                             Spacer(Modifier.height(12.dp))
                             val first = timeline.first().first

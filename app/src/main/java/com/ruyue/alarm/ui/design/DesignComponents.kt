@@ -114,6 +114,8 @@ fun DogMascot(
     pose: DogPose,
     size: Dp,
     modifier: Modifier = Modifier,
+    /** 跳动（响铃页专用）：幅度为 0 时不跳，但动画本身仍然创建着，结构不变 */
+    jump: Boolean = false,
 ) {
     val periodMs = when (pose) {
         DogPose.SLEEP -> 3400
@@ -180,17 +182,14 @@ fun PathRail(
     curveHeight: Dp = 76.dp,
 ) {
     val c = LocalRuyueColors.current
-    if (steps.isEmpty()) return
-    // 先算好每段的颜色（Canvas 里不能调 @Composable）
+    // ⚠️ 调用方保证 steps.size >= 2（单条件是 SingleConditionRail 的事）。
+    // **函数里不能写 return / return@Column**（v0.19.3 修）：Compose 不允许在
+    // composable 调用链中途提前返回 —— 一旦条件在两次重组之间翻转（比如 WiFi 连上
+    // 让条件数 1→2），group 进出就失衡，槽表损坏，然后每次重组都抛
+    // ArrayIndexOutOfBoundsException(IntStack.peek2 ← ComposerImpl.end)。
     val stepColors = steps.map { kindColor(it.kind, c) }
 
     Column(modifier) {
-        // 只有一个条件时，"段"没有第二个端点可画 —— 退化成一条直轨 + 达成部分填色。
-        // （v0.18.0 第一版这里啥都没画，只剩一个白点，看起来像坏了）
-        if (steps.size == 1) {
-            SingleConditionRail(step = steps.first(), color = stepColors.first())
-            return@Column
-        }
         androidx.compose.foundation.Canvas(
             Modifier
                 .fillMaxWidth()
@@ -285,7 +284,7 @@ fun PathRail(
  * 段数依然等于条件数（1 段），只是没有第二个节点可以弯曲。
  */
 @Composable
-private fun SingleConditionRail(step: ConditionStep, color: Color) {
+fun SingleConditionRail(step: ConditionStep, color: Color) {
     val c = LocalRuyueColors.current
     androidx.compose.foundation.Canvas(
         Modifier

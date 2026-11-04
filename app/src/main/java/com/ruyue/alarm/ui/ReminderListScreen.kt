@@ -34,6 +34,7 @@ import com.ruyue.alarm.ui.design.DogPose
 import com.ruyue.alarm.ui.design.NodeRail
 import com.ruyue.alarm.ui.design.PathRail
 import com.ruyue.alarm.ui.design.RuyueBackground
+import com.ruyue.alarm.ui.design.SingleConditionRail
 import com.ruyue.alarm.ui.design.StatusPill
 import com.ruyue.alarm.ui.design.kindColor
 import com.ruyue.alarm.ui.design.poseFor
@@ -259,7 +260,13 @@ private fun HeroSection(
                 )
             }
 
-            if (steps.isNotEmpty()) {
+            if (steps.size == 1) {
+                Spacer(Modifier.height(14.dp))
+                SingleConditionRail(
+                    step = steps.first(),
+                    color = kindColor(steps.first().kind, c),
+                )
+            } else if (steps.size >= 2) {
                 Spacer(Modifier.height(14.dp))
                 PathRail(steps = steps, modifier = Modifier.fillMaxWidth())
             }
