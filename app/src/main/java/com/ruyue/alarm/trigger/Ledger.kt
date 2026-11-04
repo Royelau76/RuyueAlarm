@@ -228,7 +228,10 @@ object Ledger {
             ReminderDb.get(context).expectedFireDao().since(now - days * 24 * 3_600_000L)
         }.getOrDefault(emptyList())
         return Stats(
-            expected = rows.size,
+            // ⚠️ 只数**已经到期**的预期：台账里还躺着"明天 09:00"这种未来的账，
+            // 把它们算进"应响"会让设置页显示「应响 18 · 实际响 12」——看起来像漏了 6 条，
+            // 其实那 6 条还没到点（v0.18.0 用户截图里就是这个误读）。
+            expected = rows.count { it.expectedAt <= now },
             fired = rows.count { it.state == ExpectedState.FIRED },
             skipped = rows.count { it.state == ExpectedState.SKIPPED },
             missed = rows.count { it.state == ExpectedState.MISSED },

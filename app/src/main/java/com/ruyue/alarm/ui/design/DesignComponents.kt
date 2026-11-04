@@ -1,4 +1,4 @@
-﻿package com.ruyue.alarm.ui.design
+package com.ruyue.alarm.ui.design
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -185,6 +185,12 @@ fun PathRail(
     val stepColors = steps.map { kindColor(it.kind, c) }
 
     Column(modifier) {
+        // 只有一个条件时，"段"没有第二个端点可画 —— 退化成一条直轨 + 达成部分填色。
+        // （v0.18.0 第一版这里啥都没画，只剩一个白点，看起来像坏了）
+        if (steps.size == 1) {
+            SingleConditionRail(step = steps.first(), color = stepColors.first())
+            return@Column
+        }
         androidx.compose.foundation.Canvas(
             Modifier
                 .fillMaxWidth()
@@ -272,6 +278,36 @@ fun PathRail(
             )
         }
     }
+}
+
+/**
+ * 单条件时的路径：一条直轨，达成就整条上色，白点（此刻）停在达成的那一头。
+ * 段数依然等于条件数（1 段），只是没有第二个节点可以弯曲。
+ */
+@Composable
+private fun SingleConditionRail(step: ConditionStep, color: Color) {
+    val c = LocalRuyueColors.current
+    androidx.compose.foundation.Canvas(
+        Modifier
+            .fillMaxWidth()
+            .height(44.dp),
+    ) {
+        val y = size.height * 0.5f
+        val bar = 6.dp.toPx()
+        drawLine(c.track, Offset(0f, y), Offset(size.width, y), bar, StrokeCap.Round)
+        if (step.met) {
+            drawLine(color, Offset(0f, y), Offset(size.width, y), bar, StrokeCap.Round)
+        }
+        val inset = 10.dp.toPx()
+        val dotX = if (step.met) size.width - inset else inset
+        drawCircle(c.text.copy(alpha = 0.18f), radius = 13.dp.toPx(), center = Offset(dotX, y))
+        drawCircle(c.text, radius = 7.dp.toPx(), center = Offset(dotX, y))
+    }
+    Text(
+        text = step.label,
+        style = MaterialTheme.typography.labelMedium,
+        color = if (step.met) color else c.textTertiary,
+    )
 }
 
 /**

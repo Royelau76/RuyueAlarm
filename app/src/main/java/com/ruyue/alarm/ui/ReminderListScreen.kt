@@ -83,8 +83,8 @@ fun ReminderListScreen(
             ) {
                 Text(
                     text = todayLabel(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = c.textTertiary,
+                    style = MaterialTheme.typography.titleMedium, // 用户反馈：日期星期原来太小
+                    color = c.textSecondary,
                 )
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onOpenSettings) {
@@ -178,17 +178,8 @@ fun ReminderListScreen(
                             color = c.onAccent,
                         )
                     }
-                    Spacer(Modifier.width(10.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(54.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(c.card)
-                            .clickable(onClick = onOpenSettings),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("›", fontSize = 22.sp, color = c.textSecondary)
-                    }
+                    // 这里原来还有一个「›」方块（功能=设置），和顶栏的「设置」重复，已删掉。
+                    // 主按钮现在独占整行（weight(1f)）
                 }
             }
         }
@@ -241,7 +232,9 @@ private fun HeroSection(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = if (pending == 0) "条件就绪" else "还差 $pending 个条件",
+                        // 设计稿里这行是**分区小标题**（固定「条件就绪」），详情由下面那句大字说。
+                        // 两行都说"还差 1 个"就重复了（v0.18.0 第一版的毛病）
+                        text = "条件就绪",
                         style = MaterialTheme.typography.labelMedium,
                         color = c.textTertiary,
                     )
@@ -515,8 +508,10 @@ private fun rowSubtitle(r: Reminder, steps: List<ConditionStep>): String {
 }
 
 private fun lastFiredLine(r: Reminder, nextText: String?): String {
+    // 两处日期用同一种格式，别一个 "11月3日" 一个 "11-04"（v0.18.0 第一版就是这样）
+    val fmt = SimpleDateFormat("M-d HH:mm", Locale.getDefault())
     val fired = if (r.lastFiredAt > 0) {
-        "最近 ${SimpleDateFormat("M月d日 HH:mm", Locale.getDefault()).format(Date(r.lastFiredAt))} 响过"
+        "最近 ${fmt.format(Date(r.lastFiredAt))} 响过"
     } else {
         "还没响过"
     }
