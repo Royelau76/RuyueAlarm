@@ -51,8 +51,10 @@ class RuyueApp : Application() {
                         Db.get(this@RuyueApp).eventLogDao().insert(
                             com.ruyue.alarm.data.EventLog(
                                 type = com.ruyue.alarm.data.EventType.ERROR,
-                                detail = "崩溃：${error.javaClass.simpleName}: ${error.message}" +
-                                    "（详见 last-crash.txt）",
+                                // 把完整栈写进 detail：这样"装回滚版 → 导出日志"就能拿到栈，
+                                // 不需要连 adb、也不需要 App 能打开
+                                detail = "崩溃：${error}\n" +
+                                    error.stackTraceToString().lines().take(40).joinToString("\n"),
                             )
                         )
                     }

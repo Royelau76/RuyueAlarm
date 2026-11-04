@@ -354,7 +354,6 @@ private fun RingScreen(
                 DogMascot(
                     pose = if (acked) DogPose.SIT_B else DogPose.RUN_HAPPY,
                     size = 120.dp,
-                    jump = !acked,
                 )
             }
 
