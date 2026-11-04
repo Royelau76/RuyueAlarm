@@ -6,21 +6,49 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.ruyue.alarm.data.Db
 import com.ruyue.alarm.data.EventType
 import com.ruyue.alarm.data.LogRepository
+import com.ruyue.alarm.data.Reminder
+import com.ruyue.alarm.data.ReminderDb
+import com.ruyue.alarm.trigger.Ledger
+import com.ruyue.alarm.ui.design.ConditionKind
+import com.ruyue.alarm.ui.design.ConditionStep
+import com.ruyue.alarm.ui.design.DogMascot
+import com.ruyue.alarm.ui.design.DogPose
+import com.ruyue.alarm.ui.design.PathRail
+import com.ruyue.alarm.ui.design.RuyueBackground
+import com.ruyue.alarm.ui.design.StatusPill
+import com.ruyue.alarm.ui.theme.LocalRuyueColors
+import com.ruyue.alarm.ui.theme.RuyueTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 /**
@@ -32,12 +60,19 @@ import javax.inject.Inject
  * 所以「声音必须由界面播放」这个前提本身就是错的：用户在用手机时，界面根本不会自动弹出。
  * 实测 2026-10-27 09:55：`ALARM_FIRED 09:55:06` → `RING_OPENED 09:55:41`，**晚了 35 秒**。
  *
- * 现在声音由 [RingPlayer] 在**通知发出时**就开始播，本页只负责：
- *  · 显示是哪一个提醒、锁屏弹出还是横幅
- *  · 「我知道了 / 稍后提醒」两个动作时把声音停掉
+ * 现在声音由 [RingPlayer] 在**通知发出时**就开始播，本页只负责显示 + 三个动作。
  *
- * 页面上仍然明确告诉你这次是「锁屏全屏弹出」还是「只走了横幅」，这个区分是排查
- * 「为什么没弹出来」的关键（M0 第 3 项留下的判读习惯）。
+ * ## v0.19.0「条件就绪」重做（UI 迁移 Step 2）
+ *
+ * 设计稿 `docs/ui/screens/alert.png` 的主张：**被提醒的那一刻必须 1 秒读懂**。
+ * 所以这页从"标题 + 三个按钮"变成了一条因果链：
+ *
+ * ```
+ * 09:00（74sp）  该开工了  你说过「开工开工！」
+ * 为什么现在响：WiFi 08:58 ── 公司 120m ── 09:00 ──●   三个都满足
+ * 08:58:12 连上公司-5G / 08:59:40 进入公司 500 米 / 09:00:00 时间到
+ * 下一次 明天 09:00 · 工作日              共响过 6 次
+ * ```
  */
 @AndroidEntryPoint
 class RingActivity : ComponentActivity() {
@@ -93,59 +128,136 @@ class RingActivity : ComponentActivity() {
             )
         }
 
+        val openedAt = System.currentTimeMillis()
+
         setContent {
-            // v0.16.3：5 分钟无人处理时 RingPlayer 会停声音、撤通知，但**不会关页面**；
-            // 而本页带 FLAG_KEEP_SCREEN_ON → 屏幕会一直亮着（实测 10-31 22:30 亮了整夜）。
-            // 监听"已自动停止"，把页面一起关掉；"响铃期间亮屏"的体验保持不变。
-            LaunchedEffect(Unit) {
-                RingPlayer.autoStopped.collect { stopped ->
-                    if (stopped) {
-                        ReminderNotifier.cancel(this@RingActivity, reminderId)
-                        finish()
+            RuyueTheme {
+                var reminder by remember { mutableStateOf<Reminder?>(null) }
+                var steps by remember { mutableStateOf<List<ConditionStep>>(emptyList()) }
+                var timeline by remember { mutableStateOf<List<Pair<Long, String>>>(emptyList()) }
+                var firedCount by remember { mutableIntStateOf(0) }
+                var nextText by remember { mutableStateOf<String?>(null) }
+                var acked by remember { mutableStateOf(false) }
+                var elapsedSec by remember { mutableIntStateOf(0) }
+
+                // 条件达成时间线：从 COND_MET 事件里捡**这条提醒**的（detail 里带标题）
+                LaunchedEffect(reminderId) {
+                    val now = System.currentTimeMillis()
+                    reminder = runCatching {
+                        ReminderDb.get(this@RingActivity).reminderDao().byId(reminderId)
+                    }.getOrNull()
+                    nextText = reminder?.let { ReminderScheduler.describeNext(it) }
+                    firedCount = Ledger.firedCount(this@RingActivity, reminderId)
+                    val events = runCatching {
+                        Db.get(this@RingActivity).eventLogDao()
+                            .listByTypesSince(listOf(EventType.COND_MET), now - 20 * 60_000L)
+                    }.getOrDefault(emptyList())
+                        .filter { it.detail?.contains("「$title」") == true && it.timestamp <= now }
+
+                    val fmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                    timeline = events.map { it.timestamp to (fmt.format(Date(it.timestamp)) + "  " + shortCond(it.detail.orEmpty())) }
+                    steps = events.mapNotNull { ev ->
+                        val d = ev.detail.orEmpty()
+                        val kind = when {
+                            d.contains("WiFi 条件") -> ConditionKind.WIFI
+                            d.contains("地点条件") -> ConditionKind.PLACE
+                            else -> ConditionKind.TIME
+                        }
+                        ConditionStep(
+                            kind = kind,
+                            label = kindName(kind) + " " + SimpleDateFormat("HH:mm", Locale.getDefault())
+                                .format(Date(ev.timestamp)),
+                            met = true,
+                        )
+                    }
+                    // 没有 COND_MET（老数据 / 数据被清）→ 用当前启用的条件兜底显示
+                    if (steps.isEmpty() && reminder != null) {
+                        steps = fallbackSteps(reminder!!)
                     }
                 }
-            }
-            RingScreen(
-                label = title,
-                note = note,
-                locked = locked,
-                onDismiss = {
-                    // 关掉响铃页的同时**必须撤掉通知**：否则它会一直留在状态栏，
-                    // 之后点那条残留通知会再拉起本页 → 又响一遍（v0.6.1 修过）
-                    ReminderNotifier.cancel(this, reminderId)
-                    stopEverything()
-                    finish()
-                },
-                onSnooze = { minutes ->
-                    if (reminderId > 0L) {
-                        // 正式提醒：N 分钟后再响一次（独立 request code，不会覆盖下一次正式闹钟）
-                        ReminderScheduler.scheduleAt(
-                            this,
-                            System.currentTimeMillis() + minutes * 60_000L,
-                            reminderId,
-                            title,
-                            note,
-                            snoozeMinutes = minutes,
-                        )
+
+                // 「已响 N 秒」：每秒刷新。玩家已停（点了旧通知）就按打开页面算
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        val played = RingPlayer.elapsedMs()
+                        elapsedSec = ((if (played > 0) played else System.currentTimeMillis() - openedAt) / 1000)
+                            .toInt()
+                        delay(1000)
+                    }
+                }
+
+                // 5 分钟无人处理：RingPlayer 自动停了声音，这里把页面也关掉（否则亮屏整夜）
+                LaunchedEffect(Unit) {
+                    RingPlayer.autoStopped.collect { stopped ->
+                        if (stopped) {
+                            ReminderNotifier.cancel(this@RingActivity, reminderId)
+                            finish()
+                        }
+                    }
+                }
+
+                RingScreen(
+                    title = title,
+                    note = note,
+                    hour = reminder?.hour,
+                    minute = reminder?.minute,
+                    steps = steps,
+                    timeline = timeline,
+                    nextText = nextText,
+                    firedCount = firedCount,
+                    elapsedSec = elapsedSec,
+                    acked = acked,
+                    onDismiss = {
+                        // 声音立刻停、通知立刻撤；页面停 640ms 让小狗从"冲过来"变"坐好看你"
+                        stopEverything()
+                        ReminderNotifier.cancel(this, reminderId)
+                        logAck("知道了", title)
+                        acked = true
                         lifecycleScope.launch {
-                            repository.log(
-                                EventType.NOTE,
-                                detail = "稍后提醒：$minutes 分钟后（提醒：$title）",
+                            delay(640)
+                            finish()
+                        }
+                    },
+                    onSnooze = { minutes ->
+                        logAck("稍后 $minutes 分钟", title)
+                        if (reminderId > 0L) {
+                            ReminderScheduler.scheduleAt(
+                                this,
+                                System.currentTimeMillis() + minutes * 60_000L,
+                                reminderId,
+                                title,
+                                note,
+                                snoozeMinutes = minutes,
+                            )
+                            lifecycleScope.launch {
+                                repository.log(
+                                    EventType.NOTE,
+                                    detail = "稍后提醒：$minutes 分钟后（提醒：$title）",
+                                )
+                            }
+                        } else {
+                            AlarmScheduler.scheduleAlarmClock(
+                                this,
+                                System.currentTimeMillis() + minutes * 60_000L,
+                                "$title（稍后 $minutes 分钟）",
                             )
                         }
-                    } else {
-                        // M0 的测试闹钟：同样按选择顺延，方便连续验证全屏意图
-                        AlarmScheduler.scheduleAlarmClock(
-                            this,
-                            System.currentTimeMillis() + minutes * 60_000L,
-                            "$title（稍后 $minutes 分钟）",
-                        )
-                    }
-                    // 稍后提醒会重新发通知，旧的这条也要撤掉，否则状态栏会叠两条
-                    ReminderNotifier.cancel(this, reminderId)
-                    stopEverything()
-                    finish()
-                },
+                        ReminderNotifier.cancel(this, reminderId)
+                        stopEverything()
+                        finish()
+                    },
+                )
+            }
+        }
+    }
+
+    /** 记一条「用户在响铃页做了什么」——详情页的「最近三次」要用 */
+    private fun logAck(action: String, title: String) {
+        val seconds = RingPlayer.elapsedMs() / 1000
+        lifecycleScope.launch {
+            repository.log(
+                EventType.RING_ACK,
+                detail = "响铃响应：$action（响了 $seconds 秒）· $title",
             )
         }
     }
@@ -157,7 +269,7 @@ class RingActivity : ComponentActivity() {
     override fun onDestroy() {
         // 只在"真的退出"时收尾；配置变化（比如旋转）不该把闹钟掐掉
         if (isFinishing) {
-            // 兜底：不管是点「我知道了」还是返回键退出，都不应该把这条提醒的通知留在状态栏
+            // 兜底：不管是点「知道了」还是返回键退出，都不应该把这条提醒的通知留在状态栏
             ReminderNotifier.cancel(this, currentReminderId)
             stopEverything()
         }
@@ -173,68 +285,228 @@ class RingActivity : ComponentActivity() {
     }
 }
 
+private fun kindName(kind: ConditionKind): String = when (kind) {
+    ConditionKind.TIME -> "时间"
+    ConditionKind.WIFI -> "WiFi"
+    ConditionKind.PLACE -> "地点"
+}
+
+/** COND_MET 的 detail 太长，时间线里压成一句话 */
+private fun shortCond(detail: String): String = when {
+    detail.contains("WiFi 条件已满足") -> "连上 Wi-Fi"
+    detail.contains("地点条件已满足") -> "进入范围"
+    else -> "时间到"
+}
+
+private fun fallbackSteps(r: Reminder): List<ConditionStep> = buildList {
+    if (r.timeEnabled) add(ConditionStep(ConditionKind.TIME, "%02d:%02d".format(r.hour, r.minute), true))
+    if (r.wifiEnabled) add(ConditionStep(ConditionKind.WIFI, r.ssidList.firstOrNull() ?: "WiFi", true))
+    if (r.placeEnabled) add(ConditionStep(ConditionKind.PLACE, r.placeName.ifBlank { "地点" }, true))
+}
+
+// ==================== 界面 ====================
+
 @Composable
 private fun RingScreen(
-    label: String,
+    title: String,
     note: String,
-    locked: Boolean,
+    hour: Int?,
+    minute: Int?,
+    steps: List<ConditionStep>,
+    timeline: List<Pair<Long, String>>,
+    nextText: String?,
+    firedCount: Int,
+    elapsedSec: Int,
+    acked: Boolean,
     onDismiss: () -> Unit,
-    /** 参数是「稍后多少分钟」：5 / 10 */
     onSnooze: (Int) -> Unit,
 ) {
-    Surface(
-        color = Color(0xFF101418),
-        modifier = Modifier.fillMaxSize(),
-    ) {
+    val c = LocalRuyueColors.current
+    RuyueBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
         ) {
-            Text("提醒", color = Color(0xFF8AB4F8), fontSize = 18.sp)
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = label,
-                color = Color.White,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            if (note.isNotBlank()) {
-                Spacer(Modifier.height(10.dp))
+            // ---- 顶部：现在 · 星期X ｜ 已响 N 秒 ----
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = note,
-                    color = Color(0xFFCFD8DC),
-                    fontSize = 17.sp,
+                    text = "现在 · " + weekday(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = c.textSecondary,
+                )
+                Spacer(Modifier.weight(1f))
+                StatusPill(text = "已响 ${elapsedSec} 秒", color = c.time)
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // ---- 大时间 + 小狗 ----
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = if (hour != null && minute != null) "%02d:%02d".format(hour, minute) else "",
+                    style = MaterialTheme.typography.displayLarge,
+                    color = c.text,
+                )
+                Spacer(Modifier.weight(1f))
+                DogMascot(
+                    pose = if (acked) DogPose.SIT_B else DogPose.RUN_HAPPY,
+                    size = 120.dp,
+                    jump = !acked,
                 )
             }
-            Spacer(Modifier.height(24.dp))
+
             Text(
-                text = if (locked) {
-                    "锁屏状态下弹出 ✅ 走的是全屏意图路径"
-                } else {
-                    "屏幕未锁定 → 系统只在通知栏出横幅（铃声已在后台播放）"
-                },
-                color = Color(0xFFB0BEC5),
-                fontSize = 15.sp,
+                text = title,
+                style = MaterialTheme.typography.headlineMedium,
+                color = c.text,
             )
-            Spacer(Modifier.height(36.dp))
-            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                Text("我知道了")
+            if (note.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "你说过「$note」",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = c.textSecondary,
+                )
             }
+
+            Spacer(Modifier.height(16.dp))
+
+            // ---- 可滚动中段（小屏也不会挤掉按钮） ----
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                if (steps.isNotEmpty()) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(c.card)
+                            .padding(16.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "为什么现在响",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = c.textTertiary,
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatusPill(
+                                text = when (steps.size) {
+                                    1 -> "条件达成"
+                                    2 -> "两个都满足"
+                                    else -> "三个都满足"
+                                },
+                                color = c.time,
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        PathRail(steps = steps, modifier = Modifier.fillMaxWidth())
+                        if (timeline.size >= 2) {
+                            Spacer(Modifier.height(12.dp))
+                            val first = timeline.first().first
+                            val used = ((timeline.last().first - first) / 1000).coerceAtLeast(0)
+                            Text(
+                                text = "从第一个条件满足到响，用了 $used 秒",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = c.textTertiary,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+
+                if (timeline.isNotEmpty()) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(c.card.copy(alpha = 0.55f))
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                    ) {
+                        timeline.forEach { (_, line) ->
+                            Text(
+                                text = line,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = c.textSecondary,
+                                modifier = Modifier.padding(vertical = 3.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = nextText?.let { "下一次 $it" } ?: "不会再自动响",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = c.textTertiary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (firedCount > 0) {
+                        Text(
+                            text = "共响过 $firedCount 次",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = c.textTertiary,
+                        )
+                    }
+                }
+            }
+
+            // ---- 三个动作 ----
             Spacer(Modifier.height(12.dp))
-            // 稍后提醒给 5 / 10 分钟两个档位：响铃时人往往在忙，多一次点击就多一分烦躁
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(
-                    onClick = { onSnooze(5) },
-                    modifier = Modifier.weight(1f),
-                ) { Text("稍后 5 分钟") }
-                OutlinedButton(
-                    onClick = { onSnooze(10) },
-                    modifier = Modifier.weight(1f),
-                ) { Text("稍后 10 分钟") }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(c.time)
+                    .clickableNoRipple(onDismiss),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "知道了",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = c.onAccent,
+                )
             }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SnoozeButton("稍后 5 分钟", Modifier.weight(1f)) { onSnooze(5) }
+                SnoozeButton("稍后 10 分钟", Modifier.weight(1f)) { onSnooze(10) }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "点「知道了」停止响铃；稍后提醒到点会再响一次",
+                style = MaterialTheme.typography.labelSmall,
+                color = c.textTertiary,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
+}
+
+@Composable
+private fun SnoozeButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val c = LocalRuyueColors.current
+    Box(
+        modifier = modifier
+            .height(50.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(c.card)
+            .clickableNoRipple(onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, style = MaterialTheme.typography.labelLarge, color = c.textSecondary)
+    }
+}
+
+/** 响铃页要立刻响应，涟漪动画没意义（而且闹钟页面不需要"按下感"） */
+private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
+    this.clickable(interactionSource = null, indication = null, onClick = onClick)
+
+private fun weekday(): String {
+    val cal = Calendar.getInstance()
+    val dow = arrayOf("日", "一", "二", "三", "四", "五", "六")[cal.get(Calendar.DAY_OF_WEEK) - 1]
+    return "星期$dow"
 }

@@ -222,6 +222,12 @@ object Ledger {
 
     data class Stats(val expected: Int, val fired: Int, val skipped: Int, val missed: Int)
 
+    /** 这条提醒累计响过几次（响铃页用） */
+    suspend fun firedCount(context: Context, reminderId: Long): Int =
+        runCatching {
+            ReminderDb.get(context).expectedFireDao().countFiredOf(reminderId)
+        }.getOrDefault(0)
+
     /** 最近 N 天的对账小结（首页展示用） */
     suspend fun stats(context: Context, days: Int = 7, now: Long = System.currentTimeMillis()): Stats {
         val rows = runCatching {

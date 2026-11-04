@@ -24,6 +24,10 @@ interface EventLogDao {
     @Query("SELECT * FROM event_logs WHERE type = :type AND timestamp >= :since ORDER BY timestamp ASC")
     suspend fun listByTypeSince(type: String, since: Long): List<EventLog>
 
+    /** 按类型集合按时间正序取（响铃页画"条件达成时间线"用） */
+    @Query("SELECT * FROM event_logs WHERE timestamp >= :since AND type IN (:types) ORDER BY timestamp ASC")
+    suspend fun listByTypesSince(types: List<String>, since: Long): List<EventLog>
+
     @Query(
         """SELECT * FROM event_logs
            WHERE timestamp >= :since AND type IN ('WIFI_CONNECT', 'WIFI_DISCONNECT')

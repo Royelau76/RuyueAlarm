@@ -83,8 +83,9 @@ fun ReminderListScreen(
             ) {
                 Text(
                     text = todayLabel(),
-                    style = MaterialTheme.typography.titleMedium, // 用户反馈：日期星期原来太小
+                    fontSize = 20.sp, // 用户两次反馈：日期星期要更大（16sp 还嫌小）
                     color = c.textSecondary,
+                    fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onOpenSettings) {

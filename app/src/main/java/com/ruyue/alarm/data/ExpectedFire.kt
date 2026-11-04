@@ -94,6 +94,10 @@ interface ExpectedFireDao {
     @Query("SELECT * FROM expected_fires WHERE expectedAt >= :since ORDER BY expectedAt DESC")
     suspend fun since(since: Long): List<ExpectedFire>
 
+    /** 这条提醒累计响过几次（响铃页「共响过 N 次」用） */
+    @Query("SELECT COUNT(*) FROM expected_fires WHERE reminderId = :reminderId AND state = 'FIRED'")
+    suspend fun countFiredOf(reminderId: Long): Int
+
     @Query("DELETE FROM expected_fires WHERE expectedAt < :before")
     suspend fun purgeBefore(before: Long)
 }

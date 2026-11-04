@@ -4,6 +4,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -14,6 +15,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -114,6 +117,8 @@ fun DogMascot(
     pose: DogPose,
     size: Dp,
     modifier: Modifier = Modifier,
+    /** 跳动：响铃页专用（设计：1.1s × 2 次，跳两下停一下） */
+    jump: Boolean = false,
 ) {
     val periodMs = when (pose) {
         DogPose.SLEEP -> 3400
@@ -131,6 +136,28 @@ fun DogMascot(
         ),
         label = "breathe",
     )
+    // 跳两下的竖直位移：0 → 1 → 0 → 0 → 1 → 0（2200ms 一轮）
+    val hop by if (jump) {
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 0f,
+            animationSpec = infiniteRepeatable(
+                animation = keyframes {
+                    durationMillis = 2200
+                    0f at 0
+                    1f at 380
+                    0f at 760
+                    0f at 1240
+                    1f at 1620
+                    0f at 2000
+                },
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "hop",
+        )
+    } else {
+        remember { mutableStateOf(0f) }
+    }
     Image(
         painter = painterResource(pose.res),
         contentDescription = null,
@@ -139,6 +166,7 @@ fun DogMascot(
             .graphicsLayer {
                 scaleY = 1f + 0.018f * t
                 scaleX = 1f - 0.006f * t
+                translationY = -10.dp.toPx() * hop
                 transformOrigin = TransformOrigin(0.5f, 0.93f)
             },
     )

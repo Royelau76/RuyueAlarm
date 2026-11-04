@@ -58,6 +58,17 @@ object RingPlayer {
     private var appContext: Context? = null
 
     /**
+     * 本次响铃**开始**的时刻（响铃页显示「已响 N 秒」用）。0 = 还没开始响。
+     */
+    @Volatile
+    var startedAt: Long = 0L
+        private set
+
+    /** 已经响了多久（毫秒）；没在响就返回 0 */
+    fun elapsedMs(now: Long = System.currentTimeMillis()): Long =
+        if (startedAt <= 0L) 0L else (now - startedAt).coerceAtLeast(0L)
+
+    /**
      * 5 分钟超时自动停止后置为 true（**只有超时这一条路会置位**）。
      *
      * 为什么需要这个信号：`stop()` 只停了声音/震动/唤醒锁和通知，**页面不会自己关** ——
@@ -84,6 +95,7 @@ object RingPlayer {
     fun start(context: Context, reminderId: Long, uriString: String, rampSeconds: Int) {
         stop()
         _autoStopped.value = false
+        startedAt = System.currentTimeMillis()
 
         val app = context.applicationContext
         appContext = app

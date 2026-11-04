@@ -27,6 +27,13 @@ object EventType {
     const val WIFI_DISCONNECT = "WIFI_DISCONNECT"
     const val ALARM_FIRED = "ALARM_FIRED"
     const val RING_OPENED = "RING_OPENED"
+    /**
+     * 某个触发条件**刚刚被满足**（WiFi 去抖通过 / 地点复核通过 / 时间到）。
+     * 响铃页要回答「为什么现在响」，需要"条件逐个达成的时刻"来画时间线。
+     */
+    const val COND_MET = "COND_MET"
+    /** 用户在响铃页做了什么（知道了 / 稍后 N 分钟）+ 响了多久才处理（详情页「最近三次」用） */
+    const val RING_ACK = "RING_ACK"
     const val BOOT = "BOOT"
     const val NOTE = "NOTE"
     const val ERROR = "ERROR"

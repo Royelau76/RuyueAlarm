@@ -72,7 +72,15 @@ object TriggerEngine {
             return
         }
 
-        matched.forEach { fire(context, it, "WiFi:$ssid", reminders, log) }
+        matched.forEach {
+            // 条件达成的时刻单独记一条：响铃页的"为什么现在响"要按时间线画出来
+            log.log(
+                EventType.COND_MET,
+                ssid = ssid,
+                detail = "「${it.title}」WiFi 条件已满足：$ssid（去抖 ${dwellSeconds}s 通过）",
+            )
+            fire(context, it, "WiFi:$ssid", reminders, log)
+        }
     }
 
     // ---------------- 地点 ----------------
@@ -355,6 +363,16 @@ object TriggerEngine {
         // ⚠️ 必须**重新读一次库**再判冷却：传进来的 `reminder` 可能是几秒前的快照，
         // 而 markFired 才刚把它改掉。不重读的话，"读旧值→双双通过"的竞态就还在。
         val fresh = reminders.byId(reminder.id) ?: return
+
+        // 地点条件已达成（不管冷却有没有放行都记一条 —— "到了"这件事已经发生）
+        runCatching {
+            log.log(
+                EventType.COND_MET,
+                detail = "「${fresh.title}」地点条件已满足：「${fresh.placeName.ifBlank { "已设地点" }}」" +
+                    "${distance.toInt()}m",
+            )
+        }
+
         if (!TriggerRules.cooldownPassed(fresh.lastFiredAt, fresh.cooldownMinutes, System.currentTimeMillis())) return
         fire(
             context,
@@ -502,6 +520,11 @@ object TriggerEngine {
         }
 
         // 先落证据再弹 UI：这样「没响」和「响了没弹出来」能分得清
+        log.log(
+            EventType.COND_MET,
+            detail = "「$title」时间条件已满足" +
+                if (reminder != null) "：%02d:%02d".format(reminder.hour, reminder.minute) else "",
+        )
         log.log(EventType.ALARM_FIRED, detail = "时间触发：$title")
         ReminderNotifier.show(
             context,
