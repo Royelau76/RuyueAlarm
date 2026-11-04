@@ -54,14 +54,22 @@ class ReminderSchedulerTest {
 
     @Test
     fun `指定今天且时间还没到 - 就排今天`() {
-        val now = System.currentTimeMillis()
-        // 现在的时刻 +2 小时，取分钟对齐（跨天就近到明天，测的是"正常情况"）
-        val cal = Calendar.getInstance().apply { timeInMillis = now; add(Calendar.HOUR_OF_DAY, 2) }
-        val h = cal.get(Calendar.HOUR_OF_DAY)
-        val m = cal.get(Calendar.MINUTE)
-        val at = ReminderScheduler.nextTriggerAt(reminder(dayStart(0), hour = h, minute = m))
+        // ⚠️ 必须注入固定的 now。原来用 System.currentTimeMillis() + 2 小时：
+        // 晚上 22 点之后 +2h 会跨到明天，"今天那个 hh:mm"就成了过去时刻 →
+        // nextTriggerAt 正确返回 null → 断言必然挂（2026-11-04 22:0x 真的撞到了）。
+        val fixedNow = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 10)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val at = ReminderScheduler.nextTriggerAt(
+            reminder(dayStart(0), hour = 11, minute = 30),
+            now = fixedNow,
+        )
         assertNotNull(at)
-        assertEquals(dayOf(now), dayOf(at!!))
+        assertEquals(dayOf(fixedNow), dayOf(at!!))
+        assertEquals("11:30", hmOf(at))
     }
 
     @Test
