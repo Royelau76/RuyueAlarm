@@ -56,6 +56,13 @@ object TriggerRules {
     }
 
     /** 冷却是否已过（过了才允许再次触发） */
+    /**
+     * 「今天不再」闸门：抑制截止时刻之前，这条提醒一律不触发。
+     * 返回未通过的原因（通过时返回 null），措辞直接给用户看。
+     */
+    fun suppressGateUnmet(suppressUntilDay: Long, now: Long): String? =
+        if (suppressUntilDay > 0L && now < suppressUntilDay) "今天不再提醒它" else null
+
     fun cooldownPassed(lastFiredAt: Long, cooldownMinutes: Int, now: Long): Boolean =
         now - lastFiredAt >= cooldownMinutes.toLong() * 60_000L
 

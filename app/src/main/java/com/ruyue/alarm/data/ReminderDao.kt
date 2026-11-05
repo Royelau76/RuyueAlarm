@@ -40,6 +40,9 @@ interface ReminderDao {
     @Query("UPDATE reminders SET enabled = 0 WHERE id = :id")
     suspend fun disable(id: Long)
 
+    @Query("UPDATE reminders SET suppressUntilDay = :until WHERE id = :id")
+    suspend fun setSuppressUntil(id: Long, until: Long)
+
     @Query("UPDATE reminders SET enabled = :enabled WHERE id = :id")
     suspend fun setEnabled(id: Long, enabled: Boolean)
 }

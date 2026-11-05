@@ -402,6 +402,14 @@ object TriggerEngine {
         reminders: ReminderRepository,
         log: LogRepository,
     ) {
+        // 「今天不再」：抑制截止之前一律不触发（到点自动失效，不用清理任务）
+        TriggerRules.suppressGateUnmet(reminder.suppressUntilDay, System.currentTimeMillis())
+            ?.let { why ->
+                log.log(EventType.NOTE, detail = "「${reminder.title}」$why，本次不触发")
+                Ledger.settleSkipped(context, reminder.id, reason = why)
+                return
+            }
+
         // 「且」模式：本次触发只是把条件凑齐了一半，还得看其他启用的条件此刻是否也成立
         if (reminder.matchMode == MatchMode.ALL) {
             val unmet = unmetConditions(context, reminder)

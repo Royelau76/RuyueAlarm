@@ -1,5 +1,6 @@
 package com.ruyue.alarm.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -33,6 +34,15 @@ data class Reminder(
      * [TriggerRules.maskMatches] 等按位逻辑一行都不用改。
      */
     val onceDate: Long = 0L,
+
+    /**
+     * 「今天不再」的抑制截止时刻（本地明天 00:00 的毫秒数）。0 = 没有抑制。
+     *
+     * 为什么存"截止时刻"而不是布尔：到点自动失效，不需要任何每天清零的任务
+     * （清零任务一旦漏跑，提醒就永久哑掉）。
+     */
+    @ColumnInfo(defaultValue = "0")
+    val suppressUntilDay: Long = 0L,
 
     // ---------------- WiFi 触发 ----------------
     val wifiEnabled: Boolean = false,

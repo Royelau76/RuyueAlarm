@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [Reminder::class, SsidHistory::class, SavedPlace::class, ExpectedFire::class],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class ReminderDatabase : RoomDatabase() {
@@ -122,6 +122,16 @@ abstract class ReminderDatabase : RoomDatabase() {
          * 不重建表、不丢数据。老提醒这一列是 0，行为与以前完全一致（按"下一个 hh:mm"算）。
          * 用 `tools/verify_migration_v5_v6.py` 离线验过。
          */
+
+        /** v6 → v7：「今天不再」的抑制截止时刻（0 = 没抑制） */
+        val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE reminders ADD COLUMN suppressUntilDay INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
         val MIGRATION_5_6: Migration = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE reminders ADD COLUMN onceDate INTEGER NOT NULL DEFAULT 0")
@@ -147,6 +157,7 @@ object ReminderDb {
                     ReminderDatabase.MIGRATION_3_4,
                     ReminderDatabase.MIGRATION_4_5,
                     ReminderDatabase.MIGRATION_5_6,
+                    ReminderDatabase.MIGRATION_6_7,
                 )
                 .build()
                 .also { instance = it }

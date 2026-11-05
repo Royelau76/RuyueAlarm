@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import javax.inject.Inject
 
 @HiltViewModel
@@ -278,6 +279,18 @@ class ReminderViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 「今天不再」：抑制到明天 0 点，同时撤掉已排的闹钟。
+     * 响铃页的「今天不再」按钮和详情页都会用它。
+     */
+    fun suppressToday(reminder: Reminder) {
+        viewModelScope.launch {
+            repo.setSuppressUntil(reminder.id, nextMidnight())
+            ReminderScheduler.cancel(app, reminder.id)
+            _message.value = "今天不再提醒「${reminder.title}」"
+        }
+    }
+
     fun toggleEnabled(reminder: Reminder) {
         viewModelScope.launch {
             val next = !reminder.enabled
@@ -291,3 +304,12 @@ class ReminderViewModel @Inject constructor(
         }
     }
 }
+
+/** 本地明天 0 点（「今天不再」的抑制截止） */
+internal fun nextMidnight(): Long = Calendar.getInstance().apply {
+    add(Calendar.DAY_OF_YEAR, 1)
+    set(Calendar.HOUR_OF_DAY, 0)
+    set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
+}.timeInMillis

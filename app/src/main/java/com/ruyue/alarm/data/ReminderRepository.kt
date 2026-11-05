@@ -35,6 +35,9 @@ class ReminderRepository @Inject constructor(
 
     suspend fun setEnabled(id: Long, enabled: Boolean) = dao.setEnabled(id, enabled)
 
+    /** 「今天不再」：把抑制截止写成明天 0 点（到点自动失效） */
+    suspend fun setSuppressUntil(id: Long, until: Long) = dao.setSuppressUntil(id, until)
+
     suspend fun markFired(id: Long, at: Long = System.currentTimeMillis()) = dao.markFired(id, at)
 
     suspend fun disable(id: Long) = dao.disable(id)
