@@ -292,10 +292,19 @@ fun SingleConditionRail(step: ConditionStep, color: Color) {
             .height(44.dp),
     ) {
         val y = size.height * 0.5f
-        val bar = 6.dp.toPx()
+        // 原来是 6dp 细线，在深色卡片上几乎看不见（用户说"看不出来"）
+        val bar = 12.dp.toPx()
         drawLine(c.track, Offset(0f, y), Offset(size.width, y), bar, StrokeCap.Round)
         if (step.met) {
             drawLine(color, Offset(0f, y), Offset(size.width, y), bar, StrokeCap.Round)
+            // 达成时再压一条更亮的高光，跟多条件路径的"上色段"视觉对齐
+            drawLine(
+                color.copy(alpha = 0.35f),
+                Offset(bar / 2, y - bar / 4),
+                Offset(size.width - bar / 2, y - bar / 4),
+                bar / 3,
+                StrokeCap.Round,
+            )
         }
         val inset = 10.dp.toPx()
         val dotX = if (step.met) size.width - inset else inset

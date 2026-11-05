@@ -395,7 +395,7 @@ private fun RingScreen(
                             )
                             StatusPill(
                                 text = when (steps.size) {
-                                    1 -> "条件达成"
+                                    1 -> "这一个条件满足了"
                                     2 -> "两个都满足"
                                     else -> "三个都满足"
                                 },

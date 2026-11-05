@@ -238,8 +238,12 @@ class ReminderViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            val id = repo.save(current)
-            val saved = current.copy(id = id)
+            // 「仅一次」的提醒响过之后会被自动停用（TriggerEngine 里 disable），
+            // 用户改完再保存显然是还想继续用它 —— 所以**保存即视为启用**。
+            // 否则会留下一条"已暂停、永远不会响"的提醒（2026-11-05 用户报的 bug）。
+            val activated = current.copy(enabled = true)
+            val id = repo.save(activated)
+            val saved = activated.copy(id = id)
 
             // 时间触发：先撤旧的再排新的，避免改时间后残留旧闹钟
             ReminderScheduler.cancel(app, id)

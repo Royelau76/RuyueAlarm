@@ -1,20 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 临时图标：一个简化的「时钟」十字指针，纯矢量，无需 PNG 资源。
-     正式版再换成设计稿。 -->
+<!--
+  App 图标前景：「路径组件」的极简版 —— 一段薄荷色路径 + 白色"此刻"点。
+  这正是 App 的品牌语汇（颜色=触发源、白点=此刻），比字母更贴合。
+  自适应图标安全区：108 画布里只用中间约 60（66dp 圆内）。
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 表盘外框 -->
+    <!-- 起点：暗轨色小点 -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M50,26 h8 v56 h-8 z" />
+        android:fillColor="#3A4874"
+        android:pathData="M34,68 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+    <!-- 路径 -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M26,50 h56 v8 h-56 z" />
-    <!-- 指针中心 -->
+        android:fillColor="#00000000"
+        android:pathData="M34,68 C34,54 48,52 54,52 C60,52 74,50 74,38"
+        android:strokeColor="#9BE0CC"
+        android:strokeLineCap="round"
+        android:strokeWidth="7" />
+    <!-- 此刻：白点 -->
     <path
-        android:fillColor="#1F6FEB"
-        android:pathData="M46,46 h16 v16 h-16 z" />
+        android:fillColor="#EDF0FF"
+        android:pathData="M74,38 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <path
+        android:fillColor="#9BE0CC"
+        android:pathData="M74,38 m-4.5,0 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0" />
 </vector>

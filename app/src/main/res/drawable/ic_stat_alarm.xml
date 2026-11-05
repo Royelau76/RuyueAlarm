@@ -1,14 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 通知栏小图标：必须是纯白单色剪影 -->
+<!--
+  状态栏 / 通知小图标：只允许**单色剪影**（系统会自己上色）。
+  图形沿用 App 图标：一段路径 + 终点圆点。
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M11,4 h2 v16 h-2 z" />
+        android:fillColor="#00000000"
+        android:pathData="M5,18 C5,13 10,13 12,12 C14,11 19,10 19,6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="2" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M4,11 h16 v2 h-16 z" />
+        android:pathData="M19,6 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
 </vector>

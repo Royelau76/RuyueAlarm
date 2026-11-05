@@ -167,11 +167,16 @@ fun EditCard(
                 onDismissRequest = { sheetOpen = false },
                 containerColor = c.sheet,
             ) {
+                // 限高 + 滚动区 weight(1f) + 按钮固定在底部：
+                // 原来整列是 wrap-content，内容一长（地点卡有地图占位 + 两组 pill）
+                // 按钮就被顶到屏幕外，用户看到的是"显示不全"（2026-11-05 用户反馈）
                 Column(
                     Modifier
                         .fillMaxWidth()
+                        .fillMaxHeight(0.92f)
                         .padding(horizontal = 18.dp)
-                        .padding(bottom = 20.dp),
+                        .navigationBarsPadding()
+                        .padding(bottom = 16.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -194,8 +199,12 @@ fun EditCard(
                         )
                     }
                     Spacer(Modifier.height(10.dp))
-                    Column(Modifier.verticalScroll(rememberScrollState())) { content() }
-                    Spacer(Modifier.height(14.dp))
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                    ) { content() }
+                    Spacer(Modifier.height(12.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

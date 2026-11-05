@@ -195,11 +195,12 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.height(6.dp))
+                // 四个按钮统一成小胶囊（原来 OutlinedButton 混在 pills 里，第 4 个还会被挤变形）
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(onClick = { vm.updateDraft { it.copy(hour = (it.hour + 23) % 24) } }) { Text("-1 时") }
-                    OutlinedButton(onClick = { vm.updateDraft { it.copy(hour = (it.hour + 1) % 24) } }) { Text("+1 时") }
-                    OutlinedButton(onClick = { vm.updateDraft { it.copy(minute = (it.minute + 55) % 60) } }) { Text("-5 分") }
-                    OutlinedButton(onClick = { vm.updateDraft { it.copy(minute = (it.minute + 5) % 60) } }) { Text("+5 分") }
+                    PresetButton("-1 时", false) { vm.updateDraft { it.copy(hour = (it.hour + 23) % 24) } }
+                    PresetButton("+1 时", false) { vm.updateDraft { it.copy(hour = (it.hour + 1) % 24) } }
+                    PresetButton("-5 分", false) { vm.updateDraft { it.copy(minute = (it.minute + 55) % 60) } }
+                    PresetButton("+5 分", false) { vm.updateDraft { it.copy(minute = (it.minute + 5) % 60) } }
                 }
 
                 Spacer(Modifier.height(12.dp))
