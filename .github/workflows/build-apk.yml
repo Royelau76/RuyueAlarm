@@ -13,16 +13,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
 
       # build.gradle 从 local.properties 读高德 key；CI 里给空值即可
       # （只有「按地址找」需要 key，空 key 不影响编译与其他功能）
