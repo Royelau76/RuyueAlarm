@@ -12,7 +12,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.ruyue.alarm.ui.theme.LocalRuyueColors
+import androidx.compose.material3.MaterialTheme
 
 /**
  * HyperOS / MIUI 上让提醒真正能响的开关清单。
@@ -22,9 +25,23 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun GuideScreen(onBack: () -> Unit) {
+    val ruyue = LocalRuyueColors.current
     val context = LocalContext.current
 
     ScreenScaffold("⑥ HyperOS 设置引导", onBack) {
+
+        // 设计语言：大标题 + 一句为什么必须开（和设置页同一套排版）
+        Text(
+            text = "先把这四样开开",
+            style = MaterialTheme.typography.headlineLarge,
+            color = ruyue.text,
+        )
+        Text(
+            text = "不打开「后台弹出界面」，锁屏闹钟只会变成一条通知。",
+            style = MaterialTheme.typography.bodyMedium,
+            color = ruyue.textSecondary,
+            modifier = Modifier.padding(top = 6.dp, bottom = 10.dp),
+        )
 
         SectionCard("必须开的 4 项") {
             Text("1. 自启动")
