@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import com.ruyue.alarm.ui.design.RuyueBackground
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Alignment
 
 /**
  * HyperOS / MIUI 上让提醒真正能响的开关清单。
