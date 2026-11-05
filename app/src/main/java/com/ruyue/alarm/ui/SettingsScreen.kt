@@ -9,8 +9,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import com.ruyue.alarm.BuildConfig
+import com.ruyue.alarm.ui.theme.LocalRuyueColors
 import com.ruyue.alarm.trigger.Ledger
 import com.ruyue.alarm.util.Backup
 import kotlinx.coroutines.launch
@@ -29,6 +32,7 @@ fun SettingsScreen(
     onOpenLogs: () -> Unit,
     onOpenDev: () -> Unit,
 ) {
+    val ruyue = LocalRuyueColors.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // 备份小结点这里存一份：点完"立即备份"要能立刻看到变化
@@ -51,7 +55,7 @@ fun SettingsScreen(
         ) {
             TextButton(onClick = onBack) { Text("← 返回") }
             Spacer(Modifier.width(4.dp))
-            Text("设置", style = MaterialTheme.typography.titleLarge)
+            Text("设置", style = MaterialTheme.typography.headlineLarge)
         }
 
         Column(
@@ -60,6 +64,13 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
+            // 设计稿：大标题下一句话就把"为什么可以放心用"说完
+            Text(
+                text = "🔒 数据只在本机。不同步、不上云。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = ruyue.textSecondary,
+                modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 8.dp),
+            )
             SettingsItem(
                 title = "通知与后台权限",
                 desc = "自启动 / 省电无限制 / 后台弹出界面 —— 不开的话锁屏闹钟弹不出来",
@@ -114,13 +125,22 @@ fun SettingsScreen(
                 onClick = onOpenDev,
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(26.dp))
             Text(
-                text = "如约 v${BuildConfig.VERSION_NAME}",
+                text = "这个版本只有你一个人用。\n所以没有账号、没有同步、没有订阅。",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = ruyue.textTertiary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
-            Hint("自用版本：不做多设备同步、不上云。所有数据只在本机（两个 Room 库文件）。")
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "如约 v${BuildConfig.VERSION_NAME} · 数据只在本机（两个 Room 库）",
+                style = MaterialTheme.typography.labelSmall,
+                color = ruyue.textTertiary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -128,30 +148,33 @@ fun SettingsScreen(
 
 @Composable
 private fun SettingsItem(title: String, desc: String, onClick: () -> Unit) {
+    val c = LocalRuyueColors.current
     Card(
         onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = c.card),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 5.dp),
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(title, style = MaterialTheme.typography.titleMedium, color = c.text)
                 Spacer(Modifier.height(3.dp))
                 Text(
                     text = desc,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = c.textTertiary,
                 )
             }
             Spacer(Modifier.width(10.dp))
             Text(
                 text = "›",
                 style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary,
+                color = c.textSecondary,
             )
         }
     }
