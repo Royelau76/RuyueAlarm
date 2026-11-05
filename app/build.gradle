@@ -29,7 +29,7 @@ android {
         minSdk 26
         targetSdk 34
         versionCode 84
-        versionName "0.27.0-m2"
+        versionName "0.27.0"
         buildConfigField "String", "AMAP_WEB_KEY", "\"${amapWebKey}\""
     }
 
