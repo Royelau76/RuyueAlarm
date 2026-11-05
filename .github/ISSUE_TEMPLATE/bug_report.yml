@@ -1,0 +1,57 @@
+name: Bug 报告
+description: 提醒没响 / 响错 / 闪退 / 界面问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        先做个自查：**四样系统权限**（自启动 / 省电无限制 / 后台弹出界面 / 通知+锁屏显示）都开了吗？
+        90% 的「闹钟不响」都是这里。
+  - type: input
+    id: device
+    attributes:
+      label: 机型与系统
+      placeholder: 小米 15 Ultra / HyperOS 2.0.5.0 / Android 15
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App 版本
+      description: 设置页最下方或关于里能看到
+      placeholder: v0.27.0 (versionCode 84)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 期望什么、实际什么
+      placeholder: 期望 9:00 响，实际没响；或者响了两次…
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 新建一条约定：时间 9:00 + 连上家里 WiFi，同时满足
+        2. …
+  - type: textarea
+    id: log
+    attributes:
+      label: 运行日志（必需）
+      description: |
+        设置 → 运行日志 → 导出，把 txt 内容贴在这里。
+        日志里带每一条触发/跳过/异常的原始记录，是排障的唯一依据。
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: perms
+    attributes:
+      label: 自查
+      options:
+        - label: 四样系统权限都已开启
+        - label: 最近没有在系统设置里点过「强行停止」

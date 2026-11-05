@@ -1,0 +1,22 @@
+name: 功能建议
+description: 想要新的触发方式 / 新的参数 / 交互改进
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: scene
+    attributes:
+      label: 你遇到的实际场景
+      description: 先说场景再说方案 —— 场景比方案重要
+      placeholder: 我想让提醒只在周末生效，而且必须是到家之后…
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你希望它怎么工作
+  - type: input
+    id: device
+    attributes:
+      label: 机型与系统（可选）
+      placeholder: 小米 15 Ultra / HyperOS
