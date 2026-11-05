@@ -16,6 +16,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ruyue.alarm.ui.theme.LocalRuyueColors
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import com.ruyue.alarm.ui.design.RuyueBackground
 
 /**
  * HyperOS / MIUI 上让提醒真正能响的开关清单。
@@ -25,76 +31,138 @@ import androidx.compose.material3.MaterialTheme
  */
 @Composable
 fun GuideScreen(onBack: () -> Unit) {
-    val ruyue = LocalRuyueColors.current
     val context = LocalContext.current
+    val ruyue = LocalRuyueColors.current
 
-    ScreenScaffold("⑥ HyperOS 设置引导", onBack) {
+    RuyueBackground {
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "‹ 返回",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ruyue.time,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onBack)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
 
-        // 设计语言：大标题 + 一句为什么必须开（和设置页同一套排版）
-        Text(
-            text = "先把这四样开开",
-            style = MaterialTheme.typography.headlineLarge,
-            color = ruyue.text,
-        )
-        Text(
-            text = "不打开「后台弹出界面」，锁屏闹钟只会变成一条通知。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = ruyue.textSecondary,
-            modifier = Modifier.padding(top = 6.dp, bottom = 10.dp),
-        )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 18.dp),
+            ) {
+                Text(
+                    text = "先把这四样开开",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = ruyue.text,
+                )
+                Text(
+                    text = "不打开「后台弹出界面」，锁屏闹钟只会变成一条通知。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ruyue.textSecondary,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
 
-        SectionCard("必须开的 4 项") {
-            Text("1. 自启动")
-            Hint("手机管家 → 应用管理 → 权限 → 自启动管理 → 允许「如约」")
-            TextButton(onClick = { openMiuiAutostart(context) }) { Text("尝试直达自启动管理页") }
+                GuideLabel("必须开的")
+                GuideCard {
+                    GuideRow("自启动", "手机管家 → 应用管理 → 权限 → 自启动管理", "去设置") { openMiuiAutostart(context) }
+                    GuideDivider()
+                    GuideRow("省电策略 → 无限制", "设置 → 应用管理 → 如约 → 省电策略", "去设置") { openAppDetails(context) }
+                    GuideDivider()
+                    GuideRow("后台弹出界面", "最关键的一项；不开就只有通知，没有全屏闹钟", "去设置") { openAppDetails(context) }
+                    GuideDivider()
+                    GuideRow("通知权限 + 锁屏通知", "允许通知，并勾上「锁屏显示」", "去设置") { openNotificationSettings(context) }
+                }
 
-            Spacer(Modifier.height(6.dp))
-            Text("2. 省电策略 → 无限制")
-            Hint("设置 → 应用设置 → 应用管理 → 如约 → 省电策略 → 无限制")
-            TextButton(onClick = { openAppDetails(context) }) { Text("打开应用详情页") }
+                GuideLabel("建议一起开的")
+                GuideCard {
+                    GuideRow("电池优化白名单", "防止 Doze 把后台闹钟延后", "去设置") { openBatteryOptimization(context) }
+                    GuideDivider()
+                    GuideRow("全屏通知开关（Android 14+）", "部分 ROM 默认拦截全屏意图", "去设置") { openFullScreenIntent(context) }
+                    GuideDivider()
+                    GuideRow("始终保持 WiFi 连接", "息屏后被关 WiFi，会让「到家提醒」延迟", null) {}
+                }
 
-            Spacer(Modifier.height(6.dp))
-            Text("3. 后台弹出界面（最关键的一项）")
-            Hint(
-                "设置 → 应用设置 → 应用管理 → 权限管理 → 其他权限 → 后台弹出界面 → 允许\n" +
-                    "不开这一项，锁屏时全屏闹钟弹不出来，只会变成一条通知。"
-            )
-            TextButton(onClick = { openAppDetails(context) }) { Text("打开应用详情页去找权限") }
+                GuideLabel("强停 = 全部失效")
+                GuideCard {
+                    Text(
+                        text = "Android 的硬限制：在系统设置里点「强行停止」，所有闹钟与监听都会失效。
+" +
+                            "不用慌 —— 重新打开一次「如约」，它会自动重新排定全部提醒。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ruyue.textTertiary,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
 
-            Spacer(Modifier.height(6.dp))
-            Text("4. 通知权限 + 锁屏显示通知")
-            TextButton(onClick = { openNotificationSettings(context) }) { Text("打开通知设置") }
+                Text(
+                    text = "自启动和「后台弹出界面」是小米私有权限，adb 授不了，只能手动点。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ruyue.textTertiary,
+                    modifier = Modifier.padding(start = 4.dp, top = 12.dp),
+                )
+                Spacer(Modifier.height(28.dp))
+            }
         }
+    }
+}
 
-        SectionCard("建议一起开的") {
-            Text("电池优化白名单")
-            Hint("选「不优化」，让系统不要在深度休眠时把进程冻住。")
-            TextButton(onClick = { openBatteryOptimization(context) }) { Text("打开电池优化设置") }
+@Composable
+private fun GuideLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = LocalRuyueColors.current.textTertiary,
+        modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 6.dp),
+    )
+}
 
-            Spacer(Modifier.height(6.dp))
-            Text("全屏通知开关（Android 14+）")
-            TextButton(onClick = { openFullScreenIntent(context) }) { Text("打开全屏通知开关") }
+@Composable
+private fun GuideCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(LocalRuyueColors.current.card),
+        content = content,
+    )
+}
 
-            Spacer(Modifier.height(6.dp))
-            Text("始终保持 WiFi 连接")
-            Hint("部分 ROM 息屏后会关 WiFi 省电，会导致「到家提醒」延迟。")
+@Composable
+private fun GuideDivider() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp)
+            .height(1.dp)
+            .background(LocalRuyueColors.current.track.copy(alpha = 0.45f)),
+    )
+}
+
+@Composable
+private fun GuideRow(title: String, desc: String, action: String?, onClick: () -> Unit) {
+    val c = LocalRuyueColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (action != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = c.text)
+            Spacer(Modifier.height(2.dp))
+            Text(desc, style = MaterialTheme.typography.labelSmall, color = c.textTertiary)
         }
-
-        SectionCard("adb 能帮上的部分") {
-            Hint(
-                "Doze 白名单可以直接用命令行加，省得手点：\n\n" +
-                    "  adb shell dumpsys deviceidle whitelist +com.ruyue.alarm\n" +
-                    "  adb shell dumpsys deviceidle whitelist | findstr ruyue\n\n" +
-                    "但自启动和「后台弹出界面」是小米私有权限，adb 授不了，只能手点。"
-            )
-        }
-
-        SectionCard("强停 = 全部失效（Android 硬限制）") {
-            Hint(
-                "在「应用信息」里点「强行停止」，系统会清掉该应用的所有闹钟与广播监听，\n" +
-                    "直到用户下次手动打开应用为止。这是 Android 的硬限制，任何保活手段都绕不过。\n" +
-                    "所以正式版里要尽量避免让用户去点强行停止，并做好「打开应用即重新排定」的逻辑。"
-            )
+        if (action != null) {
+            Text(action, style = MaterialTheme.typography.labelLarge, color = c.time)
+            Text(" ›", style = MaterialTheme.typography.labelLarge, color = c.textSecondary)
         }
     }
 }
