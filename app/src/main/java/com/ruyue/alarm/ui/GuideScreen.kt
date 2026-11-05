@@ -92,8 +92,7 @@ fun GuideScreen(onBack: () -> Unit) {
                 GuideLabel("强停 = 全部失效")
                 GuideCard {
                     Text(
-                        text = "Android 的硬限制：在系统设置里点「强行停止」，所有闹钟与监听都会失效。
-" +
+                        text = "Android 的硬限制：在系统设置里点「强行停止」，所有闹钟与监听都会失效。" +
                             "不用慌 —— 重新打开一次「如约」，它会自动重新排定全部提醒。",
                         style = MaterialTheme.typography.bodySmall,
                         color = ruyue.textTertiary,
