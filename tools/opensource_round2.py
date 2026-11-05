@@ -1,0 +1,94 @@
+# -*- coding: utf-8 -*-
+"""① MIT 保持 ② 脱敏版本历史 ③ 加 GitHub Actions。"""
+import os
+
+ROOT = r"D:\My Projects\apps\RuyueAlarm"
+
+# ---------------- ② 脱敏 ----------------
+P = os.path.join(ROOT, "docs", "版本历史.md")
+s = open(P, encoding="utf-8").read()
+before = s
+# 只替换真实生活细节，技术内容一字不动
+REPL = [
+    ("刮胡子", "示例提醒A"),
+    ("公司", "办公地点"),
+    ("家里", "住处"),
+]
+for a, b in REPL:
+    n = s.count(a)
+    s = s.replace(a, b)
+    print(f"  脱敏 {a!r} → {b!r}：{n} 处")
+open(P, "w", encoding="utf-8", newline="\n").write(s)
+print("  版本历史：", len(before), "→", len(s), "字符")
+
+# ---------------- ③ GitHub Actions ----------------
+WF = """name: build-apk
+
+# 打 tag（v 开头）自动构建并挂到 Release；也可以手动触发只拿 artifact
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # build.gradle 从 local.properties 读高德 key；CI 里给空值即可
+      # （只有「按地址找」需要 key，空 key 不影响编译与其他功能）
+      - name: Provide local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "AMAP_WEB_KEY=" >> local.properties
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --console=plain --stacktrace
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --console=plain --stacktrace
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruyue-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Attach APK to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/debug/app-debug.apk
+          generate_release_notes: true
+          body: |
+            **debug 签名包，仅供测试，请勿用于正式分发。**
+
+            安装：
+            ```
+            adb install -r app-debug.apk
+            ```
+
+            首次使用前请按 README 开启四样系统权限（自启动 / 省电无限制 /
+            后台弹出界面 / 通知+锁屏显示），否则闹钟不会响。
+"""
+p = os.path.join(ROOT, ".github", "workflows", "build-apk.yml")
+os.makedirs(os.path.dirname(p), exist_ok=True)
+open(p, "w", encoding="utf-8", newline="\n").write(WF)
+print("  ✓ .github/workflows/build-apk.yml")
+print("完成")
