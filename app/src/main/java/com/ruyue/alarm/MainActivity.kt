@@ -29,6 +29,9 @@ sealed interface Route {
     /** 首页：提醒列表（M1 起） */
     data object List : Route
 
+    /** 详情页：点列表卡片先进这里，再从这页进编辑 */
+    data class Detail(val id: Long) : Route
+
     /** id == 0 表示新建 */
     data class Edit(val id: Long) : Route
 
@@ -93,7 +96,15 @@ fun RuyueRoot(
             Route.List -> ReminderListScreen(
                 vm = reminderVm,
                 onEdit = { id -> route = Route.Edit(id) },
+                onDetail = { id -> route = Route.Detail(id) },
                 onOpenSettings = { route = Route.Settings },
+            )
+
+            is Route.Detail -> ReminderDetailScreen(
+                reminderId = current.id,
+                vm = reminderVm,
+                onBack = backToList,
+                onEdit = { id -> route = Route.Edit(id) },
             )
 
             is Route.Edit -> ReminderEditScreen(

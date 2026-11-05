@@ -57,6 +57,7 @@ import java.util.Locale
 fun ReminderListScreen(
     vm: ReminderViewModel,
     onEdit: (Long) -> Unit,
+    onDetail: (Long) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val list by vm.reminders.collectAsStateWithLifecycle()
@@ -116,7 +117,7 @@ fun ReminderListScreen(
                                 reminder = hero,
                                 steps = steps,
                                 nextText = ReminderScheduler.describeNext(hero),
-                                onClick = { onEdit(hero.id) },
+                                onClick = { onDetail(hero.id) },
                             )
                         }
                     }
@@ -141,7 +142,7 @@ fun ReminderListScreen(
                             reminder = reminder,
                             steps = steps,
                             subtitle = rowSubtitle(reminder, steps),
-                            onClick = { onEdit(reminder.id) },
+                            onClick = { onDetail(reminder.id) },
                         )
                     }
                 }
