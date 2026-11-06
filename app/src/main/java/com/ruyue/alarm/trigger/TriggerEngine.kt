@@ -536,6 +536,31 @@ object TriggerEngine {
                     }
                 } + "）",
             )
+
+            // ---- 冷却（**每条提醒各自算**，时间路径以前漏了这一道）----
+            // 2026-11-06 实测证据：`外出备案表`（时间 12:00 + 地点公司，冷却 360 分钟）
+            // 10:49 到达公司由「地点」响了一次，12:00 又由「时间」响了一次 ——
+            // 两次只隔 71 分钟，远小于 6 小时冷却，用户的直觉是"应该只响一次"。
+            // 这里补上之后：同一条约定在冷却期内，无论由哪个条件触发都只响一次。
+            // （纯时间提醒不受影响：它一天本来就只到点一次，不会因此被吞掉）
+            if (!TriggerRules.cooldownPassed(
+                    reminder.lastFiredAt,
+                    reminder.cooldownMinutes,
+                    System.currentTimeMillis(),
+                )
+            ) {
+                log.log(
+                    EventType.NOTE,
+                    detail = "「$title」时间已到，但还在冷却期内（${reminder.cooldownMinutes} 分钟），本次跳过",
+                )
+                if (reminder.repeatMask == Repeat.ONCE) {
+                    reminders.disable(reminderId)
+                } else {
+                    ReminderScheduler.schedule(context, reminder)
+                }
+                Ledger.settleSkipped(context, reminderId, reason = "冷却期内")
+                return
+            }
         }
 
         if (reminder != null) {
