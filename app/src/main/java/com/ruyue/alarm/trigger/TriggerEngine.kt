@@ -515,6 +515,27 @@ object TriggerEngine {
                 )
                 return
             }
+            // 闸门通过 → **把「验证了哪几个条件」记下来**。
+            // 没有这一行，用户只能看到「时间触发：跑步啦！」然后怀疑
+            // 「WiFi 和地点到底检查了没有」—— 2026-11-05 用户就是这么问的，
+            // 而当时的日志里没有任何证据能回答他。
+            log.log(
+                EventType.NOTE,
+                detail = "「$title」同时满足·全部通过（" + buildString {
+                    if (reminder.timeEnabled) {
+                        append("时间 %02d:%02d 在窗口内".format(reminder.hour, reminder.minute))
+                    }
+                    if (reminder.wifiEnabled) {
+                        if (isNotEmpty()) append("；")
+                        val cur = runCatching { WifiReader.snapshot(context).ssid }.getOrNull()
+                        append("WiFi 当前=${cur ?: "未连接"} 目标=${reminder.ssidList.joinToString("/")}")
+                    }
+                    if (reminder.placeEnabled) {
+                        if (isNotEmpty()) append("；")
+                        append("地点 需在「${reminder.placeName}」${reminder.radiusMeters}m 内")
+                    }
+                } + "）",
+            )
         }
 
         if (reminder != null) {
