@@ -160,23 +160,16 @@ class RingActivity : ComponentActivity() {
 
                     val fmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
                     timeline = events.map { it.timestamp to (fmt.format(Date(it.timestamp)) + "  " + shortCond(it.detail.orEmpty())) }
-                    steps = events.mapNotNull { ev ->
-                        val d = ev.detail.orEmpty()
-                        val kind = when {
-                            d.contains("WiFi 条件") -> ConditionKind.WIFI
-                            d.contains("地点条件") -> ConditionKind.PLACE
-                            else -> ConditionKind.TIME
-                        }
-                        ConditionStep(
-                            kind = kind,
-                            label = kindName(kind) + " " + SimpleDateFormat("HH:mm", Locale.getDefault())
-                                .format(Date(ev.timestamp)),
-                            met = true,
-                        )
-                    }
-                    // 没有 COND_MET（老数据 / 数据被清）→ 用当前启用的条件兜底显示
-                    if (steps.isEmpty() && reminder != null) {
-                        steps = fallbackSteps(reminder!!)
+
+                    // 条件步骤：以**这条约定启用的条件**为准，而不是以 COND_MET 事件为准。
+                    // 否则「同时满足」时只会画出触发它的那一个条件 ——
+                    // 用户问「为什么现在响」，答案应该是三个条件的全貌（2026-11-06 用户反馈）。
+                    // 「同时满足」能把闸门走完就说明其他条件此刻都成立 → 全部标 met；
+                    // 「任一满足」只有真正达成过的那些才算 met。
+                    if (reminder != null) {
+                        steps = buildStepsFrom(reminder!!, events)
+                    } else {
+                        steps = emptyList()
                     }
                 }
 
@@ -318,10 +311,20 @@ private fun shortCond(detail: String): String = when {
     else -> "时间到"
 }
 
-private fun fallbackSteps(r: Reminder): List<ConditionStep> = buildList {
-    if (r.timeEnabled) add(ConditionStep(ConditionKind.TIME, "%02d:%02d".format(r.hour, r.minute), true))
-    if (r.wifiEnabled) add(ConditionStep(ConditionKind.WIFI, r.ssidList.firstOrNull() ?: "WiFi", true))
-    if (r.placeEnabled) add(ConditionStep(ConditionKind.PLACE, r.placeName.ifBlank { "地点" }, true))
+private fun buildStepsFrom(r: Reminder, happened: List<com.ruyue.alarm.data.EventLog>): List<ConditionStep> {
+    val allMet = r.matchMode == com.ruyue.alarm.data.MatchMode.ALL
+    fun met(marker: String): Boolean = allMet || happened.any { it.detail?.contains(marker) == true }
+    return buildList {
+        if (r.timeEnabled) {
+            add(ConditionStep(ConditionKind.TIME, "%02d:%02d".format(r.hour, r.minute), met("时间条件")))
+        }
+        if (r.wifiEnabled) {
+            add(ConditionStep(ConditionKind.WIFI, r.ssidList.firstOrNull() ?: "WiFi", met("WiFi 条件")))
+        }
+        if (r.placeEnabled) {
+            add(ConditionStep(ConditionKind.PLACE, r.placeName.ifBlank { "地点" }, met("地点条件")))
+        }
+    }
 }
 
 // ==================== 界面 ====================
