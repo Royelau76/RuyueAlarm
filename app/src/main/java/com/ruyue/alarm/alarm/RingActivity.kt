@@ -196,8 +196,17 @@ class RingActivity : ComponentActivity() {
                 RingScreen(
                     title = title,
                     note = note,
-                    hour = reminder?.hour,
-                    minute = reminder?.minute,
+                    // 非时间提醒没有「时刻」——hour/minute 只是实体默认值 9:00，
+                    // 无条件传过去会让响铃页永远顶着假的 09:00（2026-11-08 用户报）
+                    hour = reminder?.takeIf { it.timeEnabled }?.hour,
+                    minute = reminder?.takeIf { it.timeEnabled }?.minute,
+                    sourceLabel = when {
+                        reminder == null -> null
+                        reminder!!.placeEnabled -> "到达 " + reminder!!.placeName.ifBlank { "地点" }
+                        reminder!!.wifiEnabled ->
+                            "连上 " + (reminder!!.ssidList.firstOrNull() ?: "WiFi")
+                        else -> null
+                    },
                     steps = steps,
                     timeline = timeline,
                     nextText = nextText,
@@ -335,6 +344,8 @@ private fun RingScreen(
     note: String,
     hour: Int?,
     minute: Int?,
+    /** 非时间提醒时，大标题位置改显示触发源（如「到达 公司」） */
+    sourceLabel: String?,
     steps: List<ConditionStep>,
     timeline: List<Pair<Long, String>>,
     nextText: String?,
@@ -370,8 +381,17 @@ private fun RingScreen(
             // ---- 大时间 + 小狗 ----
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = if (hour != null && minute != null) "%02d:%02d".format(hour, minute) else "",
-                    style = MaterialTheme.typography.displayLarge,
+                    text = if (hour != null && minute != null) {
+                        "%02d:%02d".format(hour, minute)
+                    } else {
+                        sourceLabel.orEmpty()
+                    },
+                    style = if (hour != null) {
+                        MaterialTheme.typography.displayLarge
+                    } else {
+                        // 中文用 74sp 会溢出，降两档
+                        MaterialTheme.typography.headlineLarge
+                    },
                     color = c.text,
                 )
                 Spacer(Modifier.weight(1f))
