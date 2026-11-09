@@ -1,5 +1,7 @@
 package com.ruyue.alarm.ui.design
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -14,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -143,6 +146,42 @@ fun DogMascot(
                 scaleX = 1f - 0.006f * t
                 transformOrigin = TransformOrigin(0.5f, 0.93f)
             },
+    )
+}
+
+/**
+ * 响铃页的「奔跑前来」动画 —— 用户 2026-11-09 自制，9 帧 / 140ms 一帧 / 一轮 1.26 秒。
+ *
+ * 为什么不直接放 GIF：
+ *  · Compose 的 painterResource 不会播 GIF
+ *  · AnimatedImageDrawable 要 API 28+，而本项目 minSdk 26
+ *  · 拆成 9 张 320px WebP 合计约 150KB，比原 GIF（223KB）还小，也不用引入 Coil
+ *
+ * 用 rememberInfiniteTransition 驱动帧号（而不是 LaunchedEffect + delay），
+ * 这样 Compose 会跟着屏幕刷新节奏走，不会掉帧。
+ */
+@Composable
+fun DogRunLoop(height: Dp = 110.dp, modifier: Modifier = Modifier) {
+    val frames = remember {
+        listOf(R.drawable.dog_run_00, R.drawable.dog_run_01, R.drawable.dog_run_02, R.drawable.dog_run_03, R.drawable.dog_run_04, R.drawable.dog_run_05, R.drawable.dog_run_06, R.drawable.dog_run_07, R.drawable.dog_run_08)
+    }
+    val transition = rememberInfiniteTransition(label = "dogRun")
+    val progress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1260, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "frameIndex",
+    )
+    val index = (progress * frames.size).toInt().coerceIn(0, frames.lastIndex)
+    Image(
+        painter = painterResource(frames[index]),
+        contentDescription = null,
+        modifier = modifier
+            .height(height)
+            .aspectRatio(512f / 361f),
     )
 }
 

@@ -37,6 +37,7 @@ import com.ruyue.alarm.trigger.Ledger
 import com.ruyue.alarm.ui.design.ConditionKind
 import com.ruyue.alarm.ui.design.ConditionStep
 import com.ruyue.alarm.ui.design.DogMascot
+import com.ruyue.alarm.ui.design.DogRunLoop
 import com.ruyue.alarm.ui.design.DogPose
 import com.ruyue.alarm.ui.design.PathRail
 import com.ruyue.alarm.ui.design.RuyueBackground
@@ -395,11 +396,13 @@ private fun RingScreen(
                     color = c.text,
                 )
                 Spacer(Modifier.weight(1f))
-                DogMascot(
-                    pose = if (acked) DogPose.SIT_B else DogPose.RUN_HAPPY,
-                    size = 120.dp,
-                    jump = !acked,
-                )
+                if (acked) {
+                    // 点完「知道了」→ 切回静态的「坐好看你」（设计稿的"被回应"感）
+                    DogMascot(pose = DogPose.SIT_B, size = 120.dp)
+                } else {
+                    // 响铃中 → 播用户自制的 9 帧奔跑动画
+                    DogRunLoop(height = 110.dp)
+                }
             }
 
             Text(
