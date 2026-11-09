@@ -430,6 +430,24 @@ object TriggerEngine {
                 )
                 return
             }
+            // 闸门通过 → 与时间路径同样的证据日志（v0.27.1 只补了时间路径，落下了这里）
+            log.log(
+                EventType.NOTE,
+                detail = "「${reminder.title}」同时满足·全部通过（由 $source 触发；" + buildString {
+                    if (reminder.timeEnabled) {
+                        append("时间 %02d:%02d 在窗口内".format(reminder.hour, reminder.minute))
+                    }
+                    if (reminder.wifiEnabled) {
+                        if (isNotEmpty()) append("；")
+                        val cur = runCatching { WifiReader.snapshot(context).ssid }.getOrNull()
+                        append("WiFi 当前=${cur ?: "未连接"} 目标=${reminder.ssidList.joinToString("/")}")
+                    }
+                    if (reminder.placeEnabled) {
+                        if (isNotEmpty()) append("；")
+                        append("地点 需在「${reminder.placeName}」${reminder.radiusMeters}m 内")
+                    }
+                } + "）",
+            )
         }
 
         reminders.markFired(reminder.id)

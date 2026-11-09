@@ -41,6 +41,19 @@ object ReminderNotifier {
             return
         }
 
+        // 已经有另一条在响 → **不要抢占全屏、也不要换掉声音**，只发一条通知。
+        // 2026-11-08 11:41 实测：两条提醒隔 10 秒触发，后一条拉起响铃页把前一条顶掉，
+        // 前一条连 RING_ACK 都没有（等于静默丢失）。用户处理完第一条，
+        // 点状态栏里那条通知就能进第二条 —— 信息不丢，也不会互相打断。
+        val busy = RingPlayer.isPlaying()
+        if (busy) {
+            EventWriter.write(
+                context,
+                EventType.NOTE,
+                detail = "已有响铃在进行中，提醒「$title」只发通知、不抢占全屏",
+            )
+        }
+
         val full = PendingIntent.getActivity(
             context,
             (3000 + reminderId % 100000).toInt(),
@@ -63,7 +76,8 @@ object ReminderNotifier {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             // 锁屏/息屏时靠它全屏拉起响铃页；用户正在用手机时只会出横幅（系统行为）
-            .setFullScreenIntent(full, true)
+            // busy 时不给全屏意图权限：系统就不会为它弹全屏，只出通知
+            .setFullScreenIntent(full, !busy)
             .setContentIntent(full)
             .setAutoCancel(true)
             // 常驻：响铃期间不能让用户把通知划掉（划掉了声音还在响却无处可停）
@@ -76,7 +90,8 @@ object ReminderNotifier {
             // 亮屏解锁时系统不会全屏弹 Activity、只出横幅 —— 靠界面出声就会迟到
             //（实测 2026-10-27 09:55 晚了 35 秒）。RingPlayer 是进程级播放器，
             // 由常驻哨兵的前台服务保着进程，界面来不来都能正常响。
-            RingPlayer.start(context, reminderId, ringtoneUri, rampSeconds)
+            // 已经有声音在响就不要再 start（会换掉正在响的那条的声音）
+            if (!busy) RingPlayer.start(context, reminderId, ringtoneUri, rampSeconds)
         }
     }
 
