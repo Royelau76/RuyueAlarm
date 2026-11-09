@@ -149,28 +149,45 @@ fun DogMascot(
     )
 }
 
+/** 奔跑帧（响铃中）—— 2026-11-09 自制，9 帧 / 140ms / 一轮 1.26s */
+val RUN_FRAMES = intArrayOf(
+    R.drawable.dog_run_00, R.drawable.dog_run_01, R.drawable.dog_run_02,
+    R.drawable.dog_run_03, R.drawable.dog_run_04, R.drawable.dog_run_05,
+    R.drawable.dog_run_06, R.drawable.dog_run_07, R.drawable.dog_run_08,
+)
+
+/** 追球帧（按下「稍后」之后）—— 同一套造型的第二个动作，9 帧 / 180ms */
+val CHASE_FRAMES = intArrayOf(
+    R.drawable.dog_chase_00, R.drawable.dog_chase_01, R.drawable.dog_chase_02,
+    R.drawable.dog_chase_03, R.drawable.dog_chase_04, R.drawable.dog_chase_05,
+    R.drawable.dog_chase_06, R.drawable.dog_chase_07, R.drawable.dog_chase_08,
+)
+
 /**
- * 响铃页的「奔跑前来」动画 —— 用户 2026-11-09 自制，9 帧 / 140ms 一帧 / 一轮 1.26 秒。
+ * 帧动画播放器（奔跑 / 追球共用）。
  *
- * 为什么不直接放 GIF：
- *  · Compose 的 painterResource 不会播 GIF
- *  · AnimatedImageDrawable 要 API 28+，而本项目 minSdk 26
- *  · 拆成 9 张 320px WebP 合计约 150KB，比原 GIF（223KB）还小，也不用引入 Coil
+ * 为什么不直接放 GIF：`painterResource` 不会播 GIF，`AnimatedImageDrawable` 要 API 28+
+ * （本项目 minSdk 26）；拆成 9 张 320px WebP 也就一两百 KB，还不用引入 Coil。
  *
- * 用 rememberInfiniteTransition 驱动帧号（而不是 LaunchedEffect + delay），
- * 这样 Compose 会跟着屏幕刷新节奏走，不会掉帧。
+ * ⚠️ 为什么这里只有一个 composable、靠**参数**切换动画，而不是 if 分支里放两个：
+ * 分支切换会改变组合槽表的结构 —— v0.19.3 那次启动闪退就是这么来的（见 docs/版本历史.md）。
+ *
+ * 帧号用 rememberInfiniteTransition 驱动（不是 LaunchedEffect + delay），
+ * 这样会跟着屏幕刷新节奏走，不抖不掉帧。
  */
 @Composable
-fun DogRunLoop(height: Dp = 110.dp, modifier: Modifier = Modifier) {
-    val frames = remember {
-        listOf(R.drawable.dog_run_00, R.drawable.dog_run_01, R.drawable.dog_run_02, R.drawable.dog_run_03, R.drawable.dog_run_04, R.drawable.dog_run_05, R.drawable.dog_run_06, R.drawable.dog_run_07, R.drawable.dog_run_08)
-    }
-    val transition = rememberInfiniteTransition(label = "dogRun")
+fun DogFrameLoop(
+    frames: IntArray,
+    frameMillis: Int = 140,
+    height: Dp = 110.dp,
+    modifier: Modifier = Modifier,
+) {
+    val transition = rememberInfiniteTransition(label = "dogLoop")
     val progress by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1260, easing = LinearEasing),
+            animation = tween(durationMillis = frameMillis * frames.size, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
         label = "frameIndex",
@@ -179,9 +196,7 @@ fun DogRunLoop(height: Dp = 110.dp, modifier: Modifier = Modifier) {
     Image(
         painter = painterResource(frames[index]),
         contentDescription = null,
-        modifier = modifier
-            .height(height)
-            .aspectRatio(512f / 361f),
+        modifier = modifier.height(height),
     )
 }
 

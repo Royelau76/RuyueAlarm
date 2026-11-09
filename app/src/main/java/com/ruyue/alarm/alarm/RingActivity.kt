@@ -37,7 +37,9 @@ import com.ruyue.alarm.trigger.Ledger
 import com.ruyue.alarm.ui.design.ConditionKind
 import com.ruyue.alarm.ui.design.ConditionStep
 import com.ruyue.alarm.ui.design.DogMascot
-import com.ruyue.alarm.ui.design.DogRunLoop
+import com.ruyue.alarm.ui.design.CHASE_FRAMES
+import com.ruyue.alarm.ui.design.DogFrameLoop
+import com.ruyue.alarm.ui.design.RUN_FRAMES
 import com.ruyue.alarm.ui.design.DogPose
 import com.ruyue.alarm.ui.design.PathRail
 import com.ruyue.alarm.ui.design.RuyueBackground
@@ -143,6 +145,8 @@ class RingActivity : ComponentActivity() {
                 var firedCount by remember { mutableIntStateOf(0) }
                 var nextText by remember { mutableStateOf<String?>(null) }
                 var acked by remember { mutableStateOf(false) }
+                // 按下「稍后」后 → 小狗追着球跑开（位置 A）
+                var snoozing by remember { mutableStateOf(false) }
                 var elapsedSec by remember { mutableIntStateOf(0) }
 
                 // 条件达成时间线：从 COND_MET 事件里捡**这条提醒**的（detail 里带标题）
@@ -214,6 +218,7 @@ class RingActivity : ComponentActivity() {
                     firedCount = firedCount,
                     elapsedSec = elapsedSec,
                     acked = acked,
+                    snoozing = snoozing,
                     onDismiss = {
                         // 声音立刻停、通知立刻撤；页面停 640ms 让小狗从"冲过来"变"坐好看你"
                         stopEverything()
@@ -251,7 +256,12 @@ class RingActivity : ComponentActivity() {
                         }
                         ReminderNotifier.cancel(this, reminderId)
                         stopEverything()
-                        finish()
+                        // 不立刻关页：让「追球跑开」的动画播完一轮（约 1.3 秒）
+                        snoozing = true
+                        lifecycleScope.launch {
+                            delay(1300)
+                            finish()
+                        }
                     },
                     onSuppressToday = {
                         // 「今天不再」：抑制到明天 0 点（数据闸门在 TriggerRules.suppressGateUnmet）
@@ -353,6 +363,8 @@ private fun RingScreen(
     firedCount: Int,
     elapsedSec: Int,
     acked: Boolean,
+    /** 按下「稍后」后为 true → 小狗改播「追球跑开」 */
+    snoozing: Boolean,
     onDismiss: () -> Unit,
     onSnooze: (Int) -> Unit,
     onSuppressToday: () -> Unit,
@@ -400,8 +412,12 @@ private fun RingScreen(
                     // 点完「知道了」→ 切回静态的「坐好看你」（设计稿的"被回应"感）
                     DogMascot(pose = DogPose.SIT_B, size = 120.dp)
                 } else {
-                    // 响铃中 → 播用户自制的 9 帧奔跑动画
-                    DogRunLoop(height = 110.dp)
+                    // 同一个 composable，只换帧数组：响铃=奔跑，按了稍后=追球跑开
+                    DogFrameLoop(
+                        frames = if (snoozing) CHASE_FRAMES else RUN_FRAMES,
+                        frameMillis = if (snoozing) 180 else 140,
+                        height = 110.dp,
+                    )
                 }
             }
 
