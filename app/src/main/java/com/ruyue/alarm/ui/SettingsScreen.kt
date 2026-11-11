@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenGuide: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     onOpenLogs: () -> Unit,
     onOpenDev: () -> Unit,
 ) {
@@ -75,6 +76,11 @@ fun SettingsScreen(
                 title = "通知与后台权限",
                 desc = "自启动 / 省电无限制 / 后台弹出界面 —— 不开的话锁屏闹钟弹不出来",
                 onClick = onOpenGuide,
+            )
+            SettingsItem(
+                title = "自检诊断",
+                desc = diagnosticsSummary(context),
+                onClick = onOpenDiagnostics,
             )
             SettingsItem(
                 title = "运行日志",

@@ -104,7 +104,8 @@ fun GuideScreen(onBack: () -> Unit) {
                 }
 
                 Text(
-                    text = "自启动和「后台弹出界面」是小米私有权限，adb 授不了，只能手动点。",
+                    text = com.ruyue.alarm.util.OemPermission.current().note +
+                        " 具体路径见「设置 → 自检诊断」。",
                     style = MaterialTheme.typography.labelSmall,
                     color = ruyue.textTertiary,
                     modifier = Modifier.padding(start = 4.dp, top = 12.dp),
