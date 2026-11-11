@@ -8,13 +8,13 @@ import time
 from collections import Counter, defaultdict
 from datetime import datetime
 
-SRC = r"D:\My Projects\_dbdump"
+SRC = os.environ.get("DBDUMP", r"D:\My Projects\_archive\2026-11-11\dbdump")
 TMP = tempfile.mkdtemp()
 for f in os.listdir(SRC):
     shutil.copy2(os.path.join(SRC, f), os.path.join(TMP, f))
 
 NOW = int(time.time() * 1000)
-DAYS = 4
+DAYS = int(os.environ.get("DAYS", "4"))
 FROM = NOW - DAYS * 24 * 3600_000
 
 

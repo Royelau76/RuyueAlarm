@@ -9,6 +9,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,6 +37,13 @@ import java.util.Locale
 fun LogsScreen(vm: M0ViewModel, onBack: () -> Unit) {
     val logs by vm.logs.collectAsStateWithLifecycle()
 
+    // 默认隐藏心跳：2026-11-11 实测 HEARTBEAT 占日志 841/1236（68%），
+    // 会把真正要排查的触发/响铃事件冲掉 —— 500 条里只剩一百多条有用信息。
+    // 想看心跳时点右上角切回来。
+    var importantOnly by remember { mutableStateOf(true) }
+    val shown = if (importantOnly) logs.filter { it.type != EventType.HEARTBEAT } else logs
+    val hidden = logs.size - shown.size
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -44,6 +54,9 @@ fun LogsScreen(vm: M0ViewModel, onBack: () -> Unit) {
             Spacer(Modifier.width(4.dp))
             Text("全部日志", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
+            TextButton(onClick = { importantOnly = !importantOnly }) {
+                Text(if (importantOnly) "显示心跳" else "只看重要")
+            }
             TextButton(
                 onClick = { vm.exportLogs() },
                 enabled = logs.isNotEmpty(),
@@ -51,17 +64,23 @@ fun LogsScreen(vm: M0ViewModel, onBack: () -> Unit) {
             TextButton(onClick = { vm.clearLogs() }) { Text("清空") }
         }
         Text(
-            text = "共 ${logs.size} 条（最多保留 500 条）",
+            // 是「显示」不是「保留」—— 更早的日志一直在库里，只是这一页有上限
+            text = if (importantOnly) {
+                "显示最近 ${shown.size} 条重要事件" +
+                    if (hidden > 0) "（已隐藏 $hidden 条心跳）" else ""
+            } else {
+                "显示最近 ${shown.size} 条（含心跳，更早的仍在库里，导出时会一并带上）"
+            },
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
 
-        if (logs.isEmpty()) {
+        if (shown.isEmpty()) {
             Text("还没有日志。走一遍 ①②③ 就会留下记录。")
         } else {
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(logs, key = { it.id }) { log ->
+                items(shown, key = { it.id }) { log ->
                     LogRow(log)
                 }
             }

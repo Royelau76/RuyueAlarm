@@ -16,7 +16,7 @@ interface EventLogDao {
     fun insertBlocking(log: EventLog): Long
 
     @Query("SELECT * FROM event_logs ORDER BY timestamp DESC LIMIT :limit")
-    fun recent(limit: Int = 500): Flow<List<EventLog>>
+    fun recent(limit: Int = 2000): Flow<List<EventLog>>
 
     @Query("SELECT * FROM event_logs WHERE type = :type ORDER BY timestamp DESC LIMIT 1")
     suspend fun lastOfType(type: String): EventLog?
