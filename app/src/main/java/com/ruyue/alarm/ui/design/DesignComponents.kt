@@ -84,13 +84,59 @@ fun RuyueBackground(modifier: Modifier = Modifier, content: @Composable BoxScope
 
 // ---------------- 小狗 ----------------
 
-enum class DogPose(val res: Int) {
-    SLEEP(R.drawable.dog_sleep),
-    LIE_DOWN(R.drawable.dog_lie_down),
-    SIT_LAUGH(R.drawable.dog_sit_laugh),
-    BEG_STAND(R.drawable.dog_beg_stand),
-    RUN_HAPPY(R.drawable.dog_run_happy),
-    SIT_B(R.drawable.dog_sit_b),
+/**
+ * 小狗姿态。2026-11-13 起大部分姿态是**帧动画**（用户自制 9 帧 GIF 拆的 WebP）；
+ * 只有 SLEEP / SIT_B / RUN_HAPPY 还是单帧（`frames.size == 1` → 画面恒定，等于静态图）。
+ *
+ * ⚠️ 不要为了"静态姿态省一次循环"再写 if 分支 —— 分支会改变组合槽表结构（见 docs/版本历史.md）。
+ * 单帧也走同一个 DogFrameLoop，只是画面不变。
+ */
+enum class DogPose(val frames: IntArray, val frameMillis: Int = 150) {
+    /** 暂停中：单帧静态（还没做睡觉动画） */
+    SLEEP(intArrayOf(R.drawable.dog_sleep), 3400),
+
+    /** 还差 2 个以上条件 / 空状态：躺着打滚 */
+    LIE_DOWN(
+        intArrayOf(
+            R.drawable.dog_roll_00, R.drawable.dog_roll_01, R.drawable.dog_roll_02,
+            R.drawable.dog_roll_03, R.drawable.dog_roll_04, R.drawable.dog_roll_05,
+            R.drawable.dog_roll_06, R.drawable.dog_roll_07, R.drawable.dog_roll_08
+        ),
+        180,
+    ),
+
+    /** 还差 1 个条件：坐着笑（甩水） */
+    SIT_LAUGH(
+        intArrayOf(
+            R.drawable.dog_shake_00, R.drawable.dog_shake_01, R.drawable.dog_shake_02,
+            R.drawable.dog_shake_03, R.drawable.dog_shake_04, R.drawable.dog_shake_05,
+            R.drawable.dog_shake_06, R.drawable.dog_shake_07, R.drawable.dog_shake_08
+        ),
+        130,
+    ),
+
+    /** 全部就绪：抬手等（带爱心） */
+    BEG_STAND(
+        intArrayOf(
+            R.drawable.dog_beg_00, R.drawable.dog_beg_01, R.drawable.dog_beg_02,
+            R.drawable.dog_beg_03, R.drawable.dog_beg_04, R.drawable.dog_beg_05,
+            R.drawable.dog_beg_06, R.drawable.dog_beg_07, R.drawable.dog_beg_08
+        ),
+        180,
+    ),
+
+    /** 空状态：小狗走过来 */
+    WALK(
+        intArrayOf(
+            R.drawable.dog_walk_00, R.drawable.dog_walk_01, R.drawable.dog_walk_02,
+            R.drawable.dog_walk_03, R.drawable.dog_walk_04, R.drawable.dog_walk_05,
+            R.drawable.dog_walk_06, R.drawable.dog_walk_07, R.drawable.dog_walk_08
+        ),
+        160,
+    ),
+
+    RUN_HAPPY(intArrayOf(R.drawable.dog_run_happy)),
+    SIT_B(intArrayOf(R.drawable.dog_sit_b), 3000),
 }
 
 /**
@@ -124,6 +170,7 @@ fun DogMascot(
         DogPose.SLEEP -> 3400
         DogPose.LIE_DOWN -> 3200
         DogPose.SIT_B -> 3000
+        DogPose.WALK -> 2800
         else -> 2700
     }
     val transition = rememberInfiniteTransition(label = "dog")
@@ -136,16 +183,16 @@ fun DogMascot(
         ),
         label = "breathe",
     )
-    Image(
-        painter = painterResource(pose.res),
-        contentDescription = null,
-        modifier = modifier
-            .size(size)
-            .graphicsLayer {
-                scaleY = 1f + 0.018f * t
-                scaleX = 1f - 0.006f * t
-                transformOrigin = TransformOrigin(0.5f, 0.93f)
-            },
+    // 呼吸（轻微缩放）叠在帧动画上：帧负责动作，缩放负责"活着"的微动
+    DogFrameLoop(
+        frames = pose.frames,
+        frameMillis = pose.frameMillis,
+        height = size,
+        modifier = modifier.graphicsLayer {
+            scaleY = 1f + 0.018f * t
+            scaleX = 1f - 0.006f * t
+            transformOrigin = TransformOrigin(0.5f, 0.93f)
+        },
     )
 }
 

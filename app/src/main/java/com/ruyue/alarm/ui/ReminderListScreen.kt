@@ -340,7 +340,7 @@ private fun EmptyState(onCreate: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        DogMascot(pose = DogPose.LIE_DOWN, size = 140.dp)
+        DogMascot(pose = DogPose.WALK, size = 140.dp)
         Spacer(Modifier.height(18.dp))
         Text("它不催你", style = MaterialTheme.typography.titleMedium, color = c.text)
         Spacer(Modifier.height(8.dp))
