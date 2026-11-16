@@ -516,7 +516,10 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
             )
         }
 
-        // ---------------- 冷却（三种触发共用）----------------
+        // ---------------- 冷却（只有 WiFi / 地点 才需要）----------------
+        // 纯时间提醒每天到点只响一次，不存在"同一天反复触发"的问题，
+        // 冷却对它没有意义（2026-11-16 用户要求去掉）。
+        if (draft.wifiEnabled || draft.placeEnabled) {
         EditCard(
             title = "冷却",
             summary = "${cooldownLabel(draft.cooldownMinutes)}内只响一次",
@@ -531,6 +534,7 @@ fun ReminderEditScreen(vm: ReminderViewModel, id: Long, onBack: () -> Unit) {
                     }
                 }
             }
+        }
         }
 
         // ---------------- 响铃 ----------------

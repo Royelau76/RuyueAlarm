@@ -57,6 +57,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+import androidx.compose.ui.text.style.TextOverflow
 
 /**
  * 响铃页（只管界面）。
@@ -402,10 +403,13 @@ private fun RingScreen(
                     style = if (hour != null) {
                         MaterialTheme.typography.displayLarge
                     } else {
-                        // 中文用 74sp 会溢出，降两档
-                        MaterialTheme.typography.headlineLarge
+                        // 触发源（「连上 TP-LINK_1602_5G」/「到达 公司」）用 24sp：
+                        // 34sp 时 SSID 一长就换行、顶到小狗，2026-11-16 用户反馈"太大太长"
+                        MaterialTheme.typography.titleLarge
                     },
                     color = c.text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.weight(1f))
                 if (acked) {

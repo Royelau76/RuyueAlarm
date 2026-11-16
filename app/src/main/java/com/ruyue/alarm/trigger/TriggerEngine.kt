@@ -561,7 +561,9 @@ object TriggerEngine {
             // 两次只隔 71 分钟，远小于 6 小时冷却，用户的直觉是"应该只响一次"。
             // 这里补上之后：同一条约定在冷却期内，无论由哪个条件触发都只响一次。
             // （纯时间提醒不受影响：它一天本来就只到点一次，不会因此被吞掉）
-            if (!TriggerRules.cooldownPassed(
+            // 纯时间提醒不需要冷却（每天到点只响一次）；只有带 WiFi/地点 条件时才有意义
+            if ((reminder.wifiEnabled || reminder.placeEnabled) &&
+                !TriggerRules.cooldownPassed(
                     reminder.lastFiredAt,
                     reminder.cooldownMinutes,
                     System.currentTimeMillis(),
