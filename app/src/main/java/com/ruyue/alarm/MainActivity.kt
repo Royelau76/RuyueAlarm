@@ -25,6 +25,7 @@ import com.ruyue.alarm.ui.*
 import com.ruyue.alarm.ui.theme.RuyueTheme
 import dagger.hilt.android.AndroidEntryPoint
 import com.ruyue.alarm.ui.DiagnosticsScreen
+import com.ruyue.alarm.ui.HelpScreen
 
 sealed interface Route {
     /** 首页：提醒列表（M1 起） */
@@ -51,6 +52,9 @@ sealed interface Route {
 
     /** 自检诊断：这台手机准备好了吗（阶段 1，引导 + 自检） */
     data object Diagnostics : Route
+
+    /** 使用帮助：把设置页那些说明集中到这里 */
+    data object Help : Route
     data object Logs : Route
 }
 
@@ -121,6 +125,7 @@ fun RuyueRoot(
                 onBack = backToList,
                 onOpenGuide = { route = Route.Guide },
                 onOpenDiagnostics = { route = Route.Diagnostics },
+                onOpenHelp = { route = Route.Help },
                 onOpenLogs = { route = Route.Logs },
                 onOpenDev = { route = Route.Dev },
             )
@@ -134,6 +139,7 @@ fun RuyueRoot(
             // 引导页 / 日志页都从设置进入，所以返回也回设置
             Route.Guide -> GuideScreen(onBack = { route = Route.Settings })
             Route.Diagnostics -> DiagnosticsScreen(onBack = { route = Route.Settings })
+            Route.Help -> HelpScreen(onBack = { route = Route.Settings })
             Route.Logs -> LogsScreen(vm = m0vm, onBack = { route = Route.Settings })
             }
         }

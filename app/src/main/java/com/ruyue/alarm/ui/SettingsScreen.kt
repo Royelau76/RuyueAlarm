@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenGuide: () -> Unit,
+    onOpenHelp: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenLogs: () -> Unit,
     onOpenDev: () -> Unit,
@@ -73,8 +74,13 @@ fun SettingsScreen(
                 modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 8.dp),
             )
             SettingsItem(
+                title = "使用帮助",
+                desc = "三种触发怎么配 · 权限为什么必须开 · 不响怎么查",
+                onClick = onOpenHelp,
+            )
+            SettingsItem(
                 title = "通知与后台权限",
-                desc = "自启动 / 省电无限制 / 后台弹出界面 —— 不开的话锁屏闹钟弹不出来",
+                desc = "不开的话锁屏闹钟弹不出来",
                 onClick = onOpenGuide,
             )
             SettingsItem(
@@ -84,13 +90,13 @@ fun SettingsScreen(
             )
             SettingsItem(
                 title = "运行日志",
-                desc = "按时间倒序看所有事件（排障用），可一键导出 txt",
+                desc = "排障用，可导出 txt",
                 onClick = onOpenLogs,
             )
             // 升级安全：提醒库是"不可重建"的数据，每次换版本前自动存一份 JSON
             SettingsItem(
                 title = "数据备份",
-                desc = "每次升级会自动备份提醒库；点这里可立即备份并分享出去留档",
+                desc = "升级前自动备份；这里可手动导出",
                 onClick = {
                     val file = Backup.backupNow(context)
                     if (file == null) {
@@ -106,7 +112,7 @@ fun SettingsScreen(
             // 触发对账：「提醒到底会不会响」这件事的可检测版本
             SettingsItem(
                 title = "自检对账",
-                desc = "核一遍「该响的提醒是不是都响了」；后台每天也会自动跑一次",
+                desc = "核对该响的是不是都响了",
                 onClick = {
                     scope.launch {
                         val report = Ledger.runCheck(context, force = true)
@@ -127,7 +133,7 @@ fun SettingsScreen(
             Hint(ledgerLine)
             SettingsItem(
                 title = "M0 验证台",
-                desc = "WiFi 权限 / 保活 / 全屏闹钟 / 连断统计 / 高德 —— 回归与排障入口",
+                desc = "开发者验证入口",
                 onClick = onOpenDev,
             )
 
