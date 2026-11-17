@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [Reminder::class, SsidHistory::class, SavedPlace::class, ExpectedFire::class],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class ReminderDatabase : RoomDatabase() {
@@ -124,6 +124,14 @@ abstract class ReminderDatabase : RoomDatabase() {
          */
 
         /** v6 → v7：「今天不再」的抑制截止时刻（0 = 没抑制） */
+        val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 给「用过的 WiFi」加备注列；旧数据空串（响铃页会回退显示 SSID 本身）
+                db.execSQL(
+                    "ALTER TABLE ssid_history ADD COLUMN alias TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
         val MIGRATION_6_7: Migration = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -158,6 +166,7 @@ object ReminderDb {
                     ReminderDatabase.MIGRATION_4_5,
                     ReminderDatabase.MIGRATION_5_6,
                     ReminderDatabase.MIGRATION_6_7,
+                    ReminderDatabase.MIGRATION_7_8,
                 )
                 .build()
                 .also { instance = it }

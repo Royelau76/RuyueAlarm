@@ -1,5 +1,6 @@
 package com.ruyue.alarm.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Insert
@@ -20,6 +21,11 @@ import kotlinx.coroutines.flow.Flow
 data class SsidHistory(
     @PrimaryKey val ssid: String,
     val lastSeenAt: Long = System.currentTimeMillis(),
+    /**
+     * 用户给这个网络起的备注（如「家里网」「公司」）。
+     * 响铃页优先显示备注 —— TP-LINK_1602_5G 这种名字又长又难认（2026-11-16 加入）。
+     */
+    @ColumnInfo(defaultValue = "") val alias: String = "",
 )
 
 @Dao
@@ -33,4 +39,11 @@ interface SsidHistoryDao {
 
     @Query("DELETE FROM ssid_history WHERE ssid = :ssid")
     suspend fun forget(ssid: String)
+
+    /** 只改备注，不动 lastSeenAt（否则改个备注会把它顶到列表最前面） */
+    @Query("UPDATE ssid_history SET alias = :alias WHERE ssid = :ssid")
+    suspend fun updateAlias(ssid: String, alias: String)
+
+    @Query("SELECT alias FROM ssid_history WHERE ssid = :ssid")
+    suspend fun aliasOf(ssid: String): String?
 }
