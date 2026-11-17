@@ -146,6 +146,8 @@ class RingActivity : ComponentActivity() {
                 var firedCount by remember { mutableIntStateOf(0) }
                 var nextText by remember { mutableStateOf<String?>(null) }
                 var acked by remember { mutableStateOf(false) }
+                // 这条提醒绑定网络的备注（「家里网」），响铃页优先显示它而不是一长串 SSID
+                var ssidAlias by remember { mutableStateOf<String?>(null) }
                 // 按下「稍后」后 → 小狗追着球跑开（位置 A）
                 var snoozing by remember { mutableStateOf(false) }
                 var elapsedSec by remember { mutableIntStateOf(0) }
@@ -157,6 +159,12 @@ class RingActivity : ComponentActivity() {
                         ReminderDb.get(this@RingActivity).reminderDao().byId(reminderId)
                     }.getOrNull()
                     nextText = reminder?.let { ReminderScheduler.describeNext(it) }
+                    // 备注要在协程里查（DAO 是 suspend），查到就存进 state 给下面的文案用
+                    ssidAlias = reminder?.ssidList?.firstOrNull()?.let { ssid ->
+                        runCatching {
+                            ReminderDb.get(this@RingActivity).ssidHistoryDao().aliasOf(ssid)
+                        }.getOrNull()
+                    }
                     firedCount = Ledger.firedCount(this@RingActivity, reminderId)
                     val events = runCatching {
                         Db.get(this@RingActivity).eventLogDao()
@@ -210,7 +218,11 @@ class RingActivity : ComponentActivity() {
                         reminder == null -> null
                         reminder!!.placeEnabled -> "到达 " + reminder!!.placeName.ifBlank { "地点" }
                         reminder!!.wifiEnabled ->
-                            "连上 " + (reminder!!.ssidList.firstOrNull() ?: "WiFi")
+                            "连上 " + (
+                                ssidAlias?.takeIf { a -> a.isNotBlank() }
+                                    ?: reminder!!.ssidList.firstOrNull()
+                                    ?: "WiFi"
+                            )
                         else -> null
                     },
                     steps = steps,
