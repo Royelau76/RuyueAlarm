@@ -249,7 +249,12 @@ fun ReminderDetailScreen(
                     DetailRow(
                         label = "逻辑",
                         value = if (r.matchMode == com.ruyue.alarm.data.MatchMode.ALL) "同时满足" else "任一满足",
-                        extra = cooldownText(r.cooldownMinutes),
+                        // 纯时间提醒没有冷却（2026-11-16 起），详情页也不该显示它
+                        extra = if (r.wifiEnabled || r.placeEnabled) {
+                            cooldownText(r.cooldownMinutes)
+                        } else {
+                            "到点即响"
+                        },
                         accent = c.track,
                     )
                 }
