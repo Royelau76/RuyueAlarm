@@ -92,27 +92,34 @@ fun RuyueBackground(modifier: Modifier = Modifier, content: @Composable BoxScope
  * 单帧也走同一个 DogFrameLoop，只是画面不变。
  */
 enum class DogPose(val frames: IntArray, val frameMillis: Int = 150) {
-    /** 暂停中：单帧静态（还没做睡觉动画） */
-    SLEEP(intArrayOf(R.drawable.dog_sleep), 3400),
-
-    /** 还差 2 个以上条件 / 空状态：躺着打滚 */
-    LIE_DOWN(
+    /** 暂停中：趴着睡（500ms/帧，慢节奏） */
+    SLEEP(
         intArrayOf(
-            R.drawable.dog_roll_00, R.drawable.dog_roll_01, R.drawable.dog_roll_02,
-            R.drawable.dog_roll_03, R.drawable.dog_roll_04, R.drawable.dog_roll_05,
-            R.drawable.dog_roll_06, R.drawable.dog_roll_07, R.drawable.dog_roll_08
+            R.drawable.dog_sleep2_00, R.drawable.dog_sleep2_01, R.drawable.dog_sleep2_02,
+            R.drawable.dog_sleep2_03, R.drawable.dog_sleep2_04, R.drawable.dog_sleep2_05,
+            R.drawable.dog_sleep2_06, R.drawable.dog_sleep2_07
         ),
-        180,
+        500,
     ),
 
-    /** 还差 1 个条件：坐着笑（甩水） */
+    /** 还差 2 个以上条件：低头闻草（悠闲） */
+    LIE_DOWN(
+        intArrayOf(
+            R.drawable.dog_sniff_00, R.drawable.dog_sniff_01, R.drawable.dog_sniff_02,
+            R.drawable.dog_sniff_03, R.drawable.dog_sniff_04, R.drawable.dog_sniff_05,
+            R.drawable.dog_sniff_06, R.drawable.dog_sniff_07, R.drawable.dog_sniff_08
+        ),
+        500,
+    ),
+
+    /** 还差 1 个条件：坐着大笑 */
     SIT_LAUGH(
         intArrayOf(
-            R.drawable.dog_shake_00, R.drawable.dog_shake_01, R.drawable.dog_shake_02,
-            R.drawable.dog_shake_03, R.drawable.dog_shake_04, R.drawable.dog_shake_05,
-            R.drawable.dog_shake_06, R.drawable.dog_shake_07, R.drawable.dog_shake_08
+            R.drawable.dog_sit_b2_00, R.drawable.dog_sit_b2_01, R.drawable.dog_sit_b2_02,
+            R.drawable.dog_sit_b2_03, R.drawable.dog_sit_b2_04, R.drawable.dog_sit_b2_05,
+            R.drawable.dog_sit_b2_06, R.drawable.dog_sit_b2_07
         ),
-        130,
+        180,
     ),
 
     /** 全部就绪：抬手等（带爱心） */
@@ -136,7 +143,16 @@ enum class DogPose(val frames: IntArray, val frameMillis: Int = 150) {
     ),
 
     RUN_HAPPY(intArrayOf(R.drawable.dog_run_happy)),
-    SIT_B(intArrayOf(R.drawable.dog_sit_b), 3000),
+
+    /** 响铃页点完「知道了」的收尾坐姿（带爱心 = 被回应了） */
+    SIT_B(
+        intArrayOf(
+            R.drawable.dog_sit_a_00, R.drawable.dog_sit_a_01, R.drawable.dog_sit_a_02,
+            R.drawable.dog_sit_a_03, R.drawable.dog_sit_a_04, R.drawable.dog_sit_a_05,
+            R.drawable.dog_sit_a_06, R.drawable.dog_sit_a_07, R.drawable.dog_sit_a_08
+        ),
+        350,
+    ),
 }
 
 /**
