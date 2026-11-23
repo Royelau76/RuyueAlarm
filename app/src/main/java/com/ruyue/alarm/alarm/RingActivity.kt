@@ -148,6 +148,8 @@ class RingActivity : ComponentActivity() {
                 var acked by remember { mutableStateOf(false) }
                 // 这条提醒绑定网络的备注（「家里网」），响铃页优先显示它而不是一长串 SSID
                 var ssidAlias by remember { mutableStateOf<String?>(null) }
+                // **实际触发时刻**：同时满足/稍后提醒都会偏离约定时间，页面要显示真实的那一个
+                var firedAtMs by remember { mutableStateOf<Long?>(null) }
                 // 按下「稍后」后 → 小狗追着球跑开（位置 A）
                 var snoozing by remember { mutableStateOf(false) }
                 var elapsedSec by remember { mutableIntStateOf(0) }
@@ -159,6 +161,16 @@ class RingActivity : ComponentActivity() {
                         ReminderDb.get(this@RingActivity).reminderDao().byId(reminderId)
                     }.getOrNull()
                     nextText = reminder?.let { ReminderScheduler.describeNext(it) }
+                    // 实际触发时刻：取这条提醒最近一次 ALARM_FIRED 的时间戳
+                    // （稍后提醒的 detail 是「稍后提醒（N 分钟后）：标题」，同样命中这里）
+                    firedAtMs = runCatching {
+                        Db.get(this@RingActivity).eventLogDao()
+                            .listByTypesSince(listOf(EventType.ALARM_FIRED), now - 12 * 3600_000L)
+                    }.getOrDefault(emptyList())
+                        .lastOrNull { it.detail?.contains(title) == true }
+                        ?.timestamp
+                        ?: now
+
                     // 备注要在协程里查（DAO 是 suspend），查到就存进 state 给下面的文案用
                     ssidAlias = reminder?.ssidList?.firstOrNull()?.let { ssid ->
                         runCatching {
@@ -214,6 +226,7 @@ class RingActivity : ComponentActivity() {
                     // 无条件传过去会让响铃页永远顶着假的 09:00（2026-11-08 用户报）
                     hour = reminder?.takeIf { it.timeEnabled }?.hour,
                     minute = reminder?.takeIf { it.timeEnabled }?.minute,
+firedAt = firedAtMs,
                     sourceLabel = when {
                         reminder == null -> null
                         reminder!!.placeEnabled -> "到达 " + reminder!!.placeName.ifBlank { "地点" }
@@ -368,6 +381,8 @@ private fun RingScreen(
     note: String,
     hour: Int?,
     minute: Int?,
+    /** 实际触发时刻（毫秒）—— 同时满足/稍后提醒会偏离约定时间，优先显示它 */
+    firedAt: Long?,
     /** 非时间提醒时，大标题位置改显示触发源（如「到达 公司」） */
     sourceLabel: String?,
     steps: List<ConditionStep>,
@@ -407,10 +422,12 @@ private fun RingScreen(
             // ---- 大时间 + 小狗 ----
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = if (hour != null && minute != null) {
-                        "%02d:%02d".format(hour, minute)
-                    } else {
-                        sourceLabel.orEmpty()
+                    text = when {
+                        // 实际触发时刻优先：同时满足可能比约定晚、稍后提醒则是另一个时刻
+                        firedAt != null ->
+                            SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(firedAt))
+                        hour != null && minute != null -> "%02d:%02d".format(hour, minute)
+                        else -> sourceLabel.orEmpty()
                     },
                     style = if (hour != null) {
                         MaterialTheme.typography.displayLarge
