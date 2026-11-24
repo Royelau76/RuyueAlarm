@@ -95,6 +95,28 @@ fun DiagnosticsScreen(onBack: () -> Unit) {
         }.getOrDefault(false)
 
         val list = buildList {
+            // 闹钟音量：2026-11-23 22:00 的提醒没响，其实是音量只有 1/15 而没人听见
+            val am = context.getSystemService(android.media.AudioManager::class.java)
+            val vol = runCatching { am.getStreamVolume(android.media.AudioManager.STREAM_ALARM) }.getOrDefault(-1)
+            val volMax = runCatching { am.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM) }.getOrDefault(-1)
+            add(
+                CheckRow(
+                    "闹钟音量",
+                    when {
+                        vol < 0 -> "读不到（不影响功能，但请确认系统闹钟音量没静音）"
+                        vol == 0 -> "是 0（静音）→ 响铃页会弹，但你听不到任何声音"
+                        vol <= volMax / 5 -> " /  —— 很小，锁屏时基本听不见，建议调大"
+                        else -> " / "
+                    },
+                    if (vol > volMax / 5) CheckState.OK else CheckState.BAD,
+                    "去设置",
+                ) {
+                    open(
+                        android.content.Intent(android.provider.Settings.ACTION_SOUND_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                },
+            )
             add(
                 CheckRow(
                     "通知权限",
