@@ -96,6 +96,47 @@ object ReminderNotifier {
     }
 
     /**
+     * 「这条提醒你一直没处理」—— 响铃 5 分钟自动停止后补发一条高优先级通知。
+     *
+     * 起因（2026-11-24 用户选方案 B）：11-23 22:00 的提醒其实响了，但闹钟音量只有 1/15、
+     * 5 分钟无人处理后自动停止，等于"静默漏掉"。现在会留一条能看见的通知，
+     * 点开进响铃页但不重新出声。
+     */
+    @SuppressLint("MissingPermission")
+    fun showMissed(
+        context: Context,
+        reminderId: Long,
+        title: String,
+        note: String,
+    ) {
+        cancel(context, reminderId) // 先撤掉原来那条「正在响」的常驻通知
+        val open = PendingIntent.getActivity(
+            context,
+            (3000 + reminderId % 100000).toInt(),
+            Intent(context, RingActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(ReminderScheduler.EXTRA_REMINDER_ID, reminderId)
+                .putExtra(ReminderScheduler.EXTRA_TITLE, title)
+                .putExtra(ReminderScheduler.EXTRA_NOTE, note)
+                .putExtra(RingActivity.EXTRA_SILENT, true),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val n = NotificationCompat.Builder(context, RuyueApp.CHANNEL_ALARM)
+            .setSmallIcon(R.drawable.ic_stat_alarm)
+            .setContentTitle("「$title」响过了，你没处理")
+            .setContentText(if (note.isBlank()) "点开看看是哪一条" else note)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        runCatching {
+            NotificationManagerCompat.from(context).notify(notificationId(reminderId), n)
+        }
+    }
+
+    /**
      * 撤掉这条提醒的通知。
      *
      * 为什么必须有它（2026-10-23 用户实测）：`setAutoCancel(true)` 只在**用户点通知**时生效；

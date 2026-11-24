@@ -118,9 +118,12 @@ class RingActivity : ComponentActivity() {
             ?: "提醒"
         val note = intent?.getStringExtra(ReminderScheduler.EXTRA_NOTE).orEmpty()
 
+        // 静音打开：点「响过了，你没处理」那条通知进来时不要再响一遍
+        val silentOpen = intent?.getBooleanExtra(EXTRA_SILENT, false) ?: false
+
         // 正常情况下声音**已经**在通知发出时由 RingPlayer 开始播了。
         // 只有一种情况需要在这里补一次：用户点开的是"响铃已自动停止"的旧通知。
-        if (!RingPlayer.isPlaying()) {
+        if (!silentOpen && !RingPlayer.isPlaying()) {
             RingPlayer.start(
                 this,
                 reminderId,
@@ -213,7 +216,16 @@ class RingActivity : ComponentActivity() {
                 LaunchedEffect(Unit) {
                     RingPlayer.autoStopped.collect { stopped ->
                         if (stopped) {
-                            ReminderNotifier.cancel(this@RingActivity, reminderId)
+                            // 方案 B：不用 cancel —— 补一条「响过了，你没处理」的通知，
+                            // 点开是静音的响铃页，能看到「为什么现在响」和条件
+                            runCatching {
+                                ReminderNotifier.showMissed(
+                                    this@RingActivity,
+                                    reminderId,
+                                    reminder?.title ?: title,
+                                    reminder?.note ?: note,
+                                )
+                            }
                             finish()
                         }
                     }
@@ -341,6 +353,9 @@ firedAt = firedAtMs,
 
         /** 渐强秒数；0 = 不渐强，一上来就是最大音量 */
         const val EXTRA_RAMP_SECONDS = "ruyue.extra.ramp_seconds"
+
+    /** true = 只展示响铃页、不重新出声（点「响过了但没处理」的通知进来时用） */
+    const val EXTRA_SILENT = "ruyue.extra.silent"
     }
 }
 
